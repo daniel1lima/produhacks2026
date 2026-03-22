@@ -177,10 +177,10 @@ export default function SettingsPage() {
               <CustomCardHeader>
                 <div className="flex items-center gap-2">
                   <Phone className="h-5 w-5 text-muted-foreground" />
-                  <CustomCardTitle>Session Controls</CustomCardTitle>
+                  <CustomCardTitle>Patient info</CustomCardTitle>
                 </div>
               </CustomCardHeader>
-              <CustomCardContent className="flex flex-col gap-4">
+              <CustomCardContent className="flex flex-col gap-4 pb-6">
                 {/* Add contact form */}
                 <form onSubmit={handleCreateContact} className="flex gap-2">
                   <CustomInput

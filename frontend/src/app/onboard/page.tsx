@@ -9,7 +9,7 @@ import { CustomInput } from "@/components/ui/CustomInput"
 import { Reveal } from "@/components/ui/Reveal"
 import { CustomProgress } from "@/components/ui/CustomProgress"
 
-const TOTAL_STEPS = 7
+const TOTAL_STEPS = 8
 
 function OptionCard({
   label,
@@ -52,6 +52,8 @@ export default function OnboardPage() {
   const [step, setStep] = useState(0)
 
   // Answers — UI only, not stored
+  const [seniorName, setSeniorName] = useState("")
+  const [seniorPhone, setSeniorPhone] = useState("")
   const [frequency, setFrequency] = useState("")
   const [timeOfDay, setTimeOfDay] = useState("")
   const [callLength, setCallLength] = useState("")
@@ -92,6 +94,45 @@ export default function OnboardPage() {
         return (
           <Reveal key={0}>
             <div className="text-center space-y-2 mb-8">
+              <h1 className="text-2xl font-normal text-foreground">Who are we calling?</h1>
+              <p className="text-base text-muted-foreground">
+                Tell us about the person who&apos;ll be receiving check-in calls.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-normal text-muted-foreground px-1">
+                  Their name
+                </label>
+                <CustomInput
+                  placeholder="e.g. Margaret Smith"
+                  value={seniorName}
+                  onChange={(e) => setSeniorName(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-base font-normal text-muted-foreground px-1">
+                  Their phone number
+                </label>
+                <CustomInput
+                  placeholder="+1 (555) 123-4567"
+                  value={seniorPhone}
+                  onChange={(e) => setSeniorPhone(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="pt-6">
+              <CustomButton1 className="w-full" onClick={next} disabled={!seniorName || !seniorPhone}>
+                Continue
+              </CustomButton1>
+            </div>
+          </Reveal>
+        )
+
+      case 1:
+        return (
+          <Reveal key={1}>
+            <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">How often?</h1>
               <p className="text-base text-muted-foreground">
                 How frequently would you like check-in calls?
@@ -113,21 +154,22 @@ export default function OnboardPage() {
                 />
               ))}
             </div>
-            <div className="pt-6">
-              <CustomButton1 className="w-full" onClick={next} disabled={!frequency}>
+            <div className="flex gap-3 pt-6">
+              <CustomButton2 className="flex-1" onClick={back}>Back</CustomButton2>
+              <CustomButton1 className="flex-1" onClick={next} disabled={!frequency}>
                 Continue
               </CustomButton1>
             </div>
           </Reveal>
         )
 
-      case 1:
+      case 2:
         return (
-          <Reveal key={1}>
+          <Reveal key={2}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">Best time of day?</h1>
               <p className="text-base text-muted-foreground">
-                We'll schedule calls during your preferred window.
+                We&apos;ll schedule calls during your preferred window.
               </p>
             </div>
             <div className="space-y-3">
@@ -154,9 +196,9 @@ export default function OnboardPage() {
           </Reveal>
         )
 
-      case 2:
+      case 3:
         return (
-          <Reveal key={2}>
+          <Reveal key={3}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">Call length?</h1>
               <p className="text-base text-muted-foreground">
@@ -182,9 +224,9 @@ export default function OnboardPage() {
           </Reveal>
         )
 
-      case 3:
+      case 4:
         return (
-          <Reveal key={3}>
+          <Reveal key={4}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">Anything to note?</h1>
               <p className="text-base text-muted-foreground">
@@ -210,9 +252,9 @@ export default function OnboardPage() {
           </Reveal>
         )
 
-      case 4:
+      case 5:
         return (
-          <Reveal key={4}>
+          <Reveal key={5}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">How have they been feeling?</h1>
               <p className="text-base text-muted-foreground">
@@ -245,9 +287,9 @@ export default function OnboardPage() {
           </Reveal>
         )
 
-      case 5:
+      case 6:
         return (
-          <Reveal key={5}>
+          <Reveal key={6}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">Any recent symptoms?</h1>
               <p className="text-base text-muted-foreground">
@@ -273,9 +315,9 @@ export default function OnboardPage() {
           </Reveal>
         )
 
-      case 6:
+      case 7:
         return (
-          <Reveal key={6}>
+          <Reveal key={7}>
             <div className="text-center space-y-2 mb-8">
               <h1 className="text-2xl font-normal text-foreground">Trusted contacts</h1>
               <p className="text-base text-muted-foreground">
@@ -327,9 +369,9 @@ export default function OnboardPage() {
           </Reveal>
         )
 
-      case 7:
+      case 8:
         return (
-          <Reveal key={7}>
+          <Reveal key={8}>
             <div className="text-center space-y-6">
               <div className="flex justify-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-600/15">
