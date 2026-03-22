@@ -143,7 +143,7 @@ export default function SessionPage() {
             <ArrowLeft size={20} />
             Back
           </CustomButton2>
-          <h1 className="text-2xl font-normal">{contactName}</h1>
+          <h1 className="text-2xl font-normal">{(analysis as any)?.title || contactName}</h1>
         </Reveal>
 
         {/* Session details card */}

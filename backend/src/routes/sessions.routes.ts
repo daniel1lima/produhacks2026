@@ -8,6 +8,7 @@ import { s3Service } from "../services/s3.service";
 import { twilioService } from "../services/twilio.service";
 import { analysisRepository } from "../repositories/analysis.repository";
 import { followUpRepository } from "../repositories/followUp.repository";
+import { emergencyContactRepository } from "../repositories/emergencyContact.repository";
 import { createSessionSchema } from "../types";
 import { validateBody } from "../middleware/validateRequest";
 import { AppError } from "../middleware/errorHandler";
@@ -249,6 +250,7 @@ router.post("/:id/analyze", async (req: Request, res: Response, next: NextFuncti
     // Store analysis with both transcript and visual results
     const analysis = await analysisRepository.create({
       sessionId: id,
+      title: result.title,
       summary: result.summary,
       moodScore: result.moodScore,
       concerns: result.concerns,
@@ -261,26 +263,45 @@ router.post("/:id/analyze", async (req: Request, res: Response, next: NextFuncti
 
     // Review pending follow-ups against the transcript
     const pendingFollowUps = await followUpRepository.findPending();
+    console.log(`[FollowUps] Found ${pendingFollowUps.length} pending follow-ups`);
     if (pendingFollowUps.length > 0) {
+      console.log("[FollowUps] Pending:", pendingFollowUps.map((f) => `${f.id}: "${f.note}"`));
+      console.log("[FollowUps] Sending transcript to Gemini for review...");
       const reviewResults = await geminiService.reviewFollowUps(
         session.transcriptRaw,
         pendingFollowUps.map((f) => ({ id: f.id, note: f.note }))
       );
+      console.log("[FollowUps] Gemini review results:", JSON.stringify(reviewResults, null, 2));
       for (const item of reviewResults) {
-        if (item.addressed && item.id) {
-          await followUpRepository.markAddressed(item.id, item.response, id);
+        if (item.index < 0 || item.index >= pendingFollowUps.length) {
+          console.log(`[FollowUps] Skipping invalid index ${item.index}`);
+          continue;
+        }
+        const followUp = pendingFollowUps[item.index];
+        if (item.addressed) {
+          console.log(`[FollowUps] Marking index ${item.index} ("${followUp.note}") as addressed: "${item.response}"`);
+          await followUpRepository.markAddressed(followUp.id, item.response, id);
+        } else {
+          console.log(`[FollowUps] Index ${item.index} ("${followUp.note}") was NOT addressed`);
         }
       }
     }
 
-    // If emergency, send alert to caretaker
+    // If emergency, send alert to all emergency contacts
     if (result.urgencyLevel === "emergency") {
       const contact = await contactRepository.findById(session.contactId);
       if (contact) {
-        await twilioService.sendEmergencyAlert(
-          env.CARETAKER_PHONE,
-          contact.name,
-          result.summary
+        const emergencyContacts = await emergencyContactRepository.findAll();
+        // Fall back to env var if no emergency contacts configured
+        const phones = emergencyContacts.length > 0
+          ? emergencyContacts.map((ec) => ec.phone)
+          : [env.CARETAKER_PHONE];
+        await Promise.all(
+          phones.map((phone) =>
+            twilioService.sendEmergencyAlert(phone, contact.name, result.summary).catch((e) =>
+              console.error(`[Emergency] Failed to alert ${phone}:`, e)
+            )
+          )
         );
       }
     }

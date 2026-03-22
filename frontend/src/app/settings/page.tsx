@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Bell, Shield, X, Plus, Trash2, Phone, Clock, Heart, Send, Activity, MapPin } from "lucide-react"
+import { User, Bell, X, Plus, Trash2, Phone, Clock, Heart } from "lucide-react"
 import { CustomButton1 } from "@/components/ui/CustomButton1"
 import { CustomButton2 } from "@/components/ui/CustomButton2"
 import { AppNav } from "@/components/ui/AppNav"
@@ -15,8 +15,12 @@ import {
   createContact as apiCreateContact,
   createSession,
   analyzeSession,
+  getEmergencyContacts,
+  createEmergencyContact,
+  deleteEmergencyContact,
   type Contact,
   type ContactWithSessions,
+  type EmergencyContact,
 } from "@/lib/api"
 
 function OptionPill({
@@ -43,11 +47,6 @@ function OptionPill({
   )
 }
 
-const initialContacts = [
-  { name: "Dr. Smith", phone: "+1 (555) 234-5678" },
-  { name: "Sarah Johnson", phone: "+1 (555) 987-6543" },
-]
-
 export default function SettingsPage() {
   const [emergencyAlerts, setEmergencyAlerts] = useState(true)
   const [checkInReminders, setCheckInReminders] = useState(true)
@@ -62,23 +61,40 @@ export default function SettingsPage() {
   const [mood, setMood] = useState("Good")
   const [symptoms, setSymptoms] = useState("")
 
-  // Trusted contacts (local)
-  const [contacts, setContacts] = useState(initialContacts)
+  // Trusted / emergency contacts (backend-connected)
+  const [contacts, setContacts] = useState<EmergencyContact[]>([])
   const [newName, setNewName] = useState("")
   const [newPhone, setNewPhone] = useState("")
-  const MAX_CONTACTS = 3
+  const MAX_CONTACTS = 5
 
-  function addContact() {
+  useEffect(() => {
+    loadEmergencyContacts()
+  }, [])
+
+  async function loadEmergencyContacts() {
+    try {
+      const res = await getEmergencyContacts()
+      setContacts(res.data || [])
+    } catch {}
+  }
+
+  async function addContact() {
     const n = newName.trim()
     const p = newPhone.trim()
     if (!n || !p) return
-    setContacts(prev => [...prev, { name: n, phone: p }])
-    setNewName("")
-    setNewPhone("")
+    try {
+      await createEmergencyContact(n, p)
+      setNewName("")
+      setNewPhone("")
+      await loadEmergencyContacts()
+    } catch {}
   }
 
-  function removeContact(index: number) {
-    setContacts(prev => prev.filter((_, i) => i !== index))
+  async function removeContact(id: string) {
+    try {
+      await deleteEmergencyContact(id)
+      setContacts(prev => prev.filter(c => c.id !== id))
+    } catch {}
   }
 
   // Session controls (backend-connected)
@@ -171,185 +187,6 @@ export default function SettingsPage() {
         )}
 
         <div className="flex flex-col gap-6">
-          {/* ── Session Controls ── */}
-          <Reveal delay={0.025}>
-            <CustomCard>
-              <CustomCardHeader>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-muted-foreground" />
-                  <CustomCardTitle>Patient info</CustomCardTitle>
-                </div>
-              </CustomCardHeader>
-              <CustomCardContent className="flex flex-col gap-4 pb-6">
-                {/* Add contact form */}
-                <form onSubmit={handleCreateContact} className="flex gap-2">
-                  <CustomInput
-                    placeholder="Name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="flex-1"
-                  />
-                  <CustomInput
-                    placeholder="Phone (+1...)"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    className="flex-1"
-                  />
-                  <CustomButton1 type="submit">
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </CustomButton1>
-                </form>
-
-                {/* Contacts list */}
-                {apiContacts.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No contacts yet. Add one above.</p>
-                )}
-                {apiContacts.map((c) => (
-                  <div
-                    key={c.id}
-                    className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-                      selectedContact?.id === c.id ? "border-emerald-500/50 bg-emerald-500/5" : "border-border"
-                    }`}
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.phone}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <CustomButton2 onClick={() => handleViewContact(c.id)}>
-                        View
-                      </CustomButton2>
-                      <CustomButton1 onClick={() => handleStartSession(c.id)} disabled={loading}>
-                        <Send className="h-3.5 w-3.5" />
-                        New Session
-                      </CustomButton1>
-                    </div>
-                  </div>
-                ))}
-              </CustomCardContent>
-            </CustomCard>
-          </Reveal>
-
-          {/* ── Selected Contact Sessions ── */}
-          {selectedContact && (
-            <Reveal delay={0.05}>
-              <CustomCard>
-                <CustomCardHeader>
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-muted-foreground" />
-                    <CustomCardTitle>{selectedContact.name} — Sessions</CustomCardTitle>
-                  </div>
-                </CustomCardHeader>
-                <CustomCardContent className="flex flex-col gap-3">
-                  {(!selectedContact.sessions || selectedContact.sessions.length === 0) && (
-                    <p className="text-sm text-muted-foreground">No sessions yet.</p>
-                  )}
-                  {selectedContact.sessions?.map((s: any) => (
-                    <div key={s.id} className="rounded-lg border border-border p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">Status:</span>
-                          <span
-                            className={`text-sm font-medium ${
-                              s.status === "completed"
-                                ? "text-emerald-500"
-                                : s.status === "failed"
-                                  ? "text-red-500"
-                                  : "text-amber-500"
-                            }`}
-                          >
-                            {s.status}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(s.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-
-                      {/* Location */}
-                      {s.latitude && s.longitude && (
-                        <div className="mt-3">
-                          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            {s.locationLabel || `${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)}`}
-                          </div>
-                          <iframe
-                            title="Session location"
-                            width="100%"
-                            height="140"
-                            className="rounded-lg border border-border"
-                            loading="lazy"
-                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${s.longitude - 0.01},${s.latitude - 0.01},${s.longitude + 0.01},${s.latitude + 0.01}&layer=mapnik&marker=${s.latitude},${s.longitude}`}
-                          />
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      {s.status === "completed" && !s.analysis && (
-                        <div className="mt-3">
-                          <CustomButton2
-                            onClick={() => handleAnalyze(s.id, selectedContact.id)}
-                            disabled={loading}
-                          >
-                            <Activity className="h-3.5 w-3.5" />
-                            Run Analysis
-                          </CustomButton2>
-                        </div>
-                      )}
-
-                      {/* Analysis */}
-                      {s.analysis && (
-                        <div
-                          className={`mt-3 rounded-lg p-3 ${
-                            s.analysis.urgencyLevel === "emergency"
-                              ? "bg-red-500/10 border border-red-500/20"
-                              : s.analysis.urgencyLevel === "elevated"
-                                ? "bg-amber-500/10 border border-amber-500/20"
-                                : "bg-emerald-500/10 border border-emerald-500/20"
-                          }`}
-                        >
-                          <div className="mb-2 flex items-center justify-between text-sm">
-                            <span className="font-medium">
-                              Urgency:{" "}
-                              <span
-                                className={
-                                  s.analysis.urgencyLevel === "emergency"
-                                    ? "text-red-500"
-                                    : s.analysis.urgencyLevel === "elevated"
-                                      ? "text-amber-500"
-                                      : "text-emerald-500"
-                                }
-                              >
-                                {s.analysis.urgencyLevel}
-                              </span>
-                            </span>
-                            <span className="text-muted-foreground">
-                              Mood: {s.analysis.moodScore}/10
-                            </span>
-                          </div>
-                          <p className="text-sm">{s.analysis.summary}</p>
-                          {s.analysis.concerns?.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Concerns:</p>
-                              <ul className="list-disc pl-4 text-sm">
-                                {s.analysis.concerns.map((c: string, i: number) => (
-                                  <li key={i}>{c}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </CustomCardContent>
-              </CustomCard>
-            </Reveal>
-          )}
-
           {/* Profile */}
           <Reveal delay={0.1}>
             <CustomCard>
@@ -511,13 +348,13 @@ export default function SettingsPage() {
                 </div>
               </CustomCardHeader>
               <CustomCardContent className="flex flex-col gap-3 pb-6">
-                {contacts.map((contact, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                {contacts.map((contact) => (
+                  <div key={contact.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
                     <div>
                       <p className="text-base font-normal">{contact.name}</p>
                       <p className="text-base text-muted-foreground">{contact.phone}</p>
                     </div>
-                    <CustomButton2 className="h-8 w-8 p-0" onClick={() => removeContact(i)}>
+                    <CustomButton2 className="h-8 w-8 p-0" onClick={() => removeContact(contact.id)}>
                       <X className="h-4 w-4" />
                     </CustomButton2>
                   </div>

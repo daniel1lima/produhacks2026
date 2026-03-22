@@ -41,6 +41,7 @@ model Analysis {
   id              String   @id @default(uuid())
   sessionId       String   @unique
   session         Session  @relation(fields: [sessionId], references: [id])
+  title           String?
   summary         String
   moodScore       Int?
   concerns        Json?
@@ -50,6 +51,14 @@ model Analysis {
   appearanceScore Int?
   s3Key           String?
   createdAt       DateTime @default(now())
+}
+
+model EmergencyContact {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String
+  caretakerId String   @default("caretaker-001")
+  createdAt   DateTime @default(now())
 }
 
 model FollowUp {

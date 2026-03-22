@@ -238,6 +238,32 @@ export function deleteFollowUp(id: string) {
   });
 }
 
+// ── Emergency Contacts ──
+
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  createdAt: string;
+}
+
+export function getEmergencyContacts() {
+  return apiFetch<{ success: boolean; data: EmergencyContact[] }>("/api/emergency-contacts");
+}
+
+export function createEmergencyContact(name: string, phone: string) {
+  return apiFetch<{ success: boolean; data: EmergencyContact }>("/api/emergency-contacts", {
+    method: "POST",
+    body: JSON.stringify({ name, phone }),
+  });
+}
+
+export function deleteEmergencyContact(id: string) {
+  return apiFetch<{ success: boolean }>(`/api/emergency-contacts/${id}`, {
+    method: "DELETE",
+  });
+}
+
 // ── Namespace export for react-query hooks compatibility ──
 
 export const api = {

@@ -66,14 +66,14 @@ export default function SessionsPage() {
             {sessions.map((session) => {
               const urgency = session.analysis?.urgencyLevel || "normal"
               const mood = session.analysis?.moodScore ?? 5
-              const summary = session.analysis?.summary || session.status
+              const title = (session.analysis as any)?.title || session.analysis?.summary || session.status
               return (
                 <Link key={session.id} href={`/session/${session.id}`} className="block">
                   <div className={`w-full text-left px-4 py-3 rounded-xl border transition-colors flex items-center justify-between gap-4 ${sessionColors(urgency, mood)}`}>
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${sessionDot(urgency, mood)}`} />
                       <div className="min-w-0">
-                        <p className="text-base">{summary.length > 80 ? summary.slice(0, 80) + "..." : summary}</p>
+                        <p className="text-base">{title.length > 80 ? title.slice(0, 80) + "..." : title}</p>
                         <p className="text-base text-muted-foreground mt-0.5">
                           {formatDate(session.startedAt)} · {formatTime(session.startedAt)} · {formatDuration(session.startedAt, session.endedAt)} · {session.contact?.name || "Unknown"}
                         </p>

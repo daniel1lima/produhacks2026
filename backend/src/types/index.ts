@@ -55,6 +55,7 @@ export interface HeygenSessionStart {
 // --- Gemini Analysis Types ---
 
 export interface AnalysisResult {
+  title: string;
   summary: string;
   moodScore: number;
   concerns: string[];

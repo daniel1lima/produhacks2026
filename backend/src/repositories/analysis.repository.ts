@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 export const analysisRepository = {
   async create(data: {
     sessionId: string;
+    title?: string;
     summary: string;
     moodScore?: number;
     concerns?: string[];
@@ -15,7 +16,11 @@ export const analysisRepository = {
     appearanceScore?: number | null;
     s3Key?: string;
   }): Promise<Analysis> {
-    return prisma.analysis.create({ data });
+    return prisma.analysis.upsert({
+      where: { sessionId: data.sessionId },
+      update: data,
+      create: data,
+    });
   },
 
   async findBySessionId(sessionId: string): Promise<Analysis | null> {

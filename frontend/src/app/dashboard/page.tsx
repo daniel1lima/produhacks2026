@@ -282,7 +282,7 @@ export default function DashboardPage() {
             {sessions.map((session, i) => {
               const urgency = session.analysis?.urgencyLevel || "normal"
               const mood = session.analysis?.moodScore ?? 5
-              const summary = session.analysis?.summary || session.status
+              const title = (session.analysis as any)?.title || session.analysis?.summary || session.status
               return (
                 <Reveal key={session.id} delay={i * 0.06}>
                   <Link href={`/session/${session.id}`} className="block">
@@ -290,7 +290,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3 min-w-0">
                         <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${sessionDot(urgency, mood)}`} />
                         <div className="min-w-0">
-                          <p className="text-base">{summary.length > 80 ? summary.slice(0, 80) + "..." : summary}</p>
+                          <p className="text-base">{title.split(" ").length > 5 ? title.split(" ").slice(0, 5).join(" ") + "..." : title}</p>
                           <p className="text-base text-muted-foreground mt-0.5">
                             {formatDate(session.startedAt)} · {formatTime(session.startedAt)} · {formatDuration(session.startedAt, session.endedAt)} · {session.contact?.name || "Unknown"}
                           </p>

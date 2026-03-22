@@ -9,6 +9,7 @@ const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 const ANALYSIS_PROMPT = `You are a medical analysis assistant. Analyze the following health check-in conversation transcript between an AI health companion and an elderly person.
 
 Return your analysis as a JSON object with exactly these fields:
+- "title": A short, descriptive title for this session (5-10 words, e.g. "Garden update & feeling well" or "Chest tightness and missed meals")
 - "summary": A 2-3 sentence summary of the person's reported health status
 - "moodScore": A number from 1-10 (1=very low, 10=excellent) based on their overall mood and engagement
 - "concerns": An array of strings listing any health concerns mentioned (empty array if none)
@@ -186,12 +187,12 @@ IMPORTANT: Return ONLY the JSON object, no other text.`,
   async reviewFollowUps(
     transcript: unknown,
     followUps: Array<{ id: string; note: string }>
-  ): Promise<Array<{ id: string; addressed: boolean; response: string }>> {
+  ): Promise<Array<{ index: number; addressed: boolean; response: string }>> {
     if (followUps.length === 0) return [];
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const transcriptText = typeof transcript === "string" ? transcript : JSON.stringify(transcript);
-      const followUpList = followUps.map((f) => `- id: "${f.id}", topic: "${f.note}"`).join("\n");
+      const followUpList = followUps.map((f, i) => `- index: ${i}, topic: "${f.note}"`).join("\n");
 
       const result = await model.generateContent(`You are analyzing a health check-in conversation transcript to determine if specific talking points were addressed.
 
@@ -205,14 +206,23 @@ ${followUpList}
 Transcript:
 ${transcriptText}
 
-Return ONLY a JSON array of objects with fields: "id" (string), "addressed" (boolean), "response" (string — summary if addressed, empty string if not).`);
+Return ONLY a JSON array of objects with fields: "index" (number — the exact index from above), "addressed" (boolean), "response" (string — summary if addressed, empty string if not).`);
 
       const text = result.response.text();
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      console.log("[Gemini] reviewFollowUps raw response:", text);
+      const cleaned = text
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+        .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+        .trim();
       const parsed = JSON.parse(cleaned);
-      if (!Array.isArray(parsed)) return [];
+      if (!Array.isArray(parsed)) {
+        console.log("[Gemini] reviewFollowUps response was not an array:", typeof parsed);
+        return [];
+      }
       return parsed.map((item: any) => ({
-        id: typeof item.id === "string" ? item.id : "",
+        index: typeof item.index === "number" ? item.index : -1,
         addressed: !!item.addressed,
         response: typeof item.response === "string" ? item.response : "",
       }));
@@ -272,6 +282,7 @@ ${sessionsData}`);
       const parsed = JSON.parse(cleaned) as AnalysisResult;
 
       return {
+        title: parsed.title || "Health check-in",
         summary: parsed.summary || "Unable to generate summary",
         moodScore: Math.min(10, Math.max(1, parsed.moodScore || 5)),
         concerns: Array.isArray(parsed.concerns) ? parsed.concerns : [],
