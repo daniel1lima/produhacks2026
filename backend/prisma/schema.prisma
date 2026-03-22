@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Contact {
+  id           String    @id @default(uuid())
+  name         String
+  phone        String
+  relationship String    @default("family")
+  caretakerId  String
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+}
+
+model Session {
+  id              String    @id @default(uuid())
+  contactId       String
+  contact         Contact   @relation(fields: [contactId], references: [id])
+  heygenSessionId String?
+  sessionToken    String?
+  status          String    @default("pending")
+  transcriptRaw   Json?
+  callLink        String?
+  recordingKey    String?
+  latitude        Float?
+  longitude       Float?
+  locationLabel   String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime  @default(now())
+  analysis        Analysis?
+}
+
+model Analysis {
+  id              String   @id @default(uuid())
+  sessionId       String   @unique
+  session         Session  @relation(fields: [sessionId], references: [id])
+  summary         String
+  moodScore       Int?
+  concerns        Json?
+  urgencyLevel    String   @default("normal")
+  visualSummary   String?
+  visualConcerns  Json?
+  appearanceScore Int?
+  s3Key           String?
+  createdAt       DateTime @default(now())
+}
+
+model DailySummary {
+  id        String   @id @default(uuid())
+  date      DateTime @unique @db.Date
+  items     Json
+  createdAt DateTime @default(now())
+}

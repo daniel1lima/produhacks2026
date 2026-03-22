@@ -6,7 +6,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`);
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `API error: ${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -57,6 +58,9 @@ export interface Session {
   startedAt: string;
   endedAt?: string;
   callLink?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationLabel?: string | null;
   analysis?: Analysis;
 }
 
@@ -65,13 +69,51 @@ export function createSession(contactId: string) {
     success: boolean;
     data: {
       session: Session;
-      heygenToken: string;
-      callLink: string;
+      smsSent: boolean;
     };
   }>("/api/sessions", {
     method: "POST",
     body: JSON.stringify({ contactId }),
   });
+}
+
+export function joinSession(contactId: string) {
+  return apiFetch<{
+    success: boolean;
+    data: {
+      sessionId: string;
+      livekitUrl: string;
+      livekitToken: string;
+    };
+  }>(`/api/sessions/join/${contactId}`);
+}
+
+export function chatSession(sessionId: string, text: string) {
+  return apiFetch<{
+    success: boolean;
+    data: { reply: string };
+  }>(`/api/sessions/${sessionId}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function saveLocation(sessionId: string, latitude: number, longitude: number) {
+  return apiFetch<{ success: boolean }>(`/api/sessions/${sessionId}/location`, {
+    method: "POST",
+    body: JSON.stringify({ latitude, longitude }),
+  });
+}
+
+export async function uploadRecording(sessionId: string, blob: Blob) {
+  const formData = new FormData();
+  formData.append("video", blob, `recording-${sessionId}.webm`);
+  const res = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}/recording`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Recording upload failed");
+  return res.json();
 }
 
 export function completeSession(id: string) {
@@ -103,6 +145,9 @@ export interface Analysis {
   moodScore: number;
   concerns: string[];
   urgencyLevel: "normal" | "elevated" | "emergency";
+  visualSummary?: string;
+  visualConcerns?: string[];
+  appearanceScore?: number;
 }
 
 export interface AnalysisEntry {
@@ -126,3 +171,55 @@ export function getAnalysis(sessionId: string) {
     `/api/analysis/${sessionId}`
   );
 }
+
+// ── Daily Summaries ──
+
+export interface DailySummaryItem {
+  icon: string;
+  title: string;
+  summary: string;
+  color: string;
+}
+
+export interface DailySummary {
+  id: string;
+  date: string;
+  items: DailySummaryItem[];
+  createdAt: string;
+}
+
+export function getSummaries(limit = 7) {
+  return apiFetch<{ success: boolean; data: DailySummary[] }>(
+    `/api/summaries?limit=${limit}`
+  );
+}
+
+export function generateSummary() {
+  return apiFetch<{ success: boolean; data: DailySummary }>(
+    "/api/summaries/generate",
+    { method: "POST" }
+  );
+}
+
+// ── Namespace export for react-query hooks compatibility ──
+
+export const api = {
+  listContacts: getContacts,
+  getContact,
+  createContact,
+  createSession,
+  getSession: (id: string) =>
+    apiFetch<{ success: boolean; data: Session }>(`/api/sessions/${id}`),
+  joinSession,
+  chat: chatSession,
+  saveLocation: (sessionId: string, data: { latitude: number; longitude: number }) =>
+    saveLocation(sessionId, data.latitude, data.longitude),
+  completeSession: (id: string) =>
+    apiFetch<{ success: boolean; data: Session }>(`/api/sessions/${id}/complete`, { method: "POST" }),
+  analyzeSession,
+  sendInvite,
+  listAnalyses: getAnalyses,
+  getAnalysis,
+  listSummaries: getSummaries,
+  generateSummary,
+};
