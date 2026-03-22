@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Plus, Circle, CircleCheck, Lightbulb } from "lucide-react"
+import { X, Plus, Circle, CircleCheck } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { CustomButton2 } from "@/components/ui/CustomButton2"
 import { CustomInput } from "@/components/ui/CustomInput"
@@ -10,17 +10,10 @@ import { PageMain } from "@/components/ui/PageMain"
 import { Reveal } from "@/components/ui/Reveal"
 import { getFollowUps, createFollowUp, deleteFollowUp, type FollowUp } from "@/lib/api"
 
-// ── Suggested topics (static for now) ─────────────
-const suggestedTopics = [
-  "Ask about physical health — not discussed in recent sessions",
-  "Check in on cognitive health — not discussed in recent sessions",
-]
-
 export default function NotesPage() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [newNote, setNewNote] = useState("")
   const [showAllCompleted, setShowAllCompleted] = useState(false)
-  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -38,7 +31,6 @@ export default function NotesPage() {
   const pendingPoints = followUps.filter(tp => tp.status === "pending")
   const addressedPoints = followUps.filter(tp => tp.status === "addressed")
   const visibleAddressed = showAllCompleted ? addressedPoints : addressedPoints.slice(0, 2)
-  const visibleSuggestions = suggestedTopics.filter(s => !dismissedSuggestions.includes(s))
 
   async function addTalkingPoint(note?: string) {
     const text = note || newNote.trim()
@@ -57,14 +49,6 @@ export default function NotesPage() {
     } catch {}
   }
 
-  function addSuggestion(suggestion: string) {
-    addTalkingPoint(suggestion)
-    setDismissedSuggestions(prev => [...prev, suggestion])
-  }
-
-  function dismissSuggestion(suggestion: string) {
-    setDismissedSuggestions(prev => [...prev, suggestion])
-  }
 
   return (
     <div className="min-h-screen">
@@ -76,53 +60,8 @@ export default function NotesPage() {
           <p className="text-base text-muted-foreground mb-5">Things to bring up in the next session.</p>
         </Reveal>
 
-        {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+        {loading && <p className="text-base text-muted-foreground">Loading...</p>}
 
-        {/* Suggested topics */}
-        {visibleSuggestions.length > 0 && (
-          <Reveal delay={0.02}>
-            <div className="mb-8">
-              <p className="text-base font-normal text-blue-500 mb-3 flex items-center gap-2">
-                <Lightbulb className="h-4 w-4" />
-                Suggested
-              </p>
-              <div className="flex flex-col gap-3">
-                <AnimatePresence>
-                  {visibleSuggestions.map((suggestion) => (
-                    <motion.div
-                      key={suggestion}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="rounded-xl border border-blue-500/50 bg-blue-500/5 p-4"
-                    >
-                      <div className="flex items-start gap-3">
-                        <Lightbulb className="mt-0.5 h-4 w-4 text-blue-500 shrink-0" />
-                        <p className="text-base leading-relaxed flex-1">{suggestion}</p>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <CustomButton2
-                            onClick={() => addSuggestion(suggestion)}
-                            className="h-8 px-3"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add
-                          </CustomButton2>
-                          <button
-                            onClick={() => dismissSuggestion(suggestion)}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </div>
-          </Reveal>
-        )}
 
         <div className="grid gap-8 sm:grid-cols-2">
           {/* Pending column */}

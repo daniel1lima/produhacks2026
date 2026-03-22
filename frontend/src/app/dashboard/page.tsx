@@ -206,7 +206,7 @@ export default function DashboardPage() {
               )
             })}
             {!loading && insights.length === 0 && (
-              <p className="text-muted-foreground text-sm col-span-full">No insights yet. Generate a daily summary from Settings.</p>
+              <p className="text-muted-foreground text-base col-span-full">No insights yet. Generate a daily summary from Settings.</p>
             )}
           </div>
         </section>
@@ -313,7 +313,7 @@ export default function DashboardPage() {
             {sessions.map((session, i) => {
               const urgency = session.analysis?.urgencyLevel || "normal"
               const mood = session.analysis?.moodScore ?? 5
-              const title = (session.analysis as any)?.title || session.analysis?.summary || session.status
+              const title = session.analysis?.title || session.analysis?.summary || session.status
               return (
                 <Reveal key={session.id} delay={i * 0.06}>
                   <Link href={`/session/${session.id}`} className="block">
@@ -337,7 +337,7 @@ export default function DashboardPage() {
               )
             })}
             {!loading && sessions.length === 0 && (
-              <p className="text-muted-foreground text-sm">No completed sessions yet.</p>
+              <p className="text-muted-foreground text-base">No completed sessions yet.</p>
             )}
           </div>
         </section>

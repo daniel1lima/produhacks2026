@@ -59,14 +59,14 @@ export default function SessionsPage() {
           <p className="text-base text-muted-foreground">All past check-in recordings across your contacts.</p>
         </Reveal>
 
-        {loading && <p className="text-muted-foreground text-sm">Loading...</p>}
+        {loading && <p className="text-muted-foreground text-base">Loading...</p>}
 
         <Reveal delay={0.05}>
           <div className="flex flex-col gap-3">
             {sessions.map((session) => {
               const urgency = session.analysis?.urgencyLevel || "normal"
               const mood = session.analysis?.moodScore ?? 5
-              const title = (session.analysis as any)?.title || session.analysis?.summary || session.status
+              const title = session.analysis?.title || session.analysis?.summary || session.status
               return (
                 <Link key={session.id} href={`/session/${session.id}`} className="block">
                   <div className={`w-full text-left px-4 py-3 rounded-xl border transition-colors flex items-center justify-between gap-4 ${sessionColors(urgency, mood)}`}>
@@ -75,12 +75,17 @@ export default function SessionsPage() {
                       <div className="min-w-0">
                         <p className="text-base">{title.length > 80 ? title.slice(0, 80) + "..." : title}</p>
                         <p className="text-base text-muted-foreground mt-0.5">
-                          {formatDate(session.startedAt)} · {formatTime(session.startedAt)} · {formatDuration(session.startedAt, session.endedAt)} · {session.contact?.name || "Unknown"}
+                          {formatDate(session.startedAt)} · {formatTime(session.startedAt)} · {formatDuration(session.startedAt, session.endedAt)}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <p className="text-base text-muted-foreground">Mood <span className="text-foreground">{mood}/10</span></p>
+                      <div className="text-right">
+                        <p className="text-base text-muted-foreground">Mood <span className="text-foreground">{mood}/10</span></p>
+                        <p className="text-base text-muted-foreground">Urgency <span className={`capitalize ${
+                          urgency === "emergency" ? "text-red-500" : urgency === "elevated" ? "text-amber-500" : "text-emerald-500"
+                        }`}>{urgency}</span></p>
+                      </div>
                       <Play className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
@@ -88,7 +93,7 @@ export default function SessionsPage() {
               )
             })}
             {!loading && sessions.length === 0 && (
-              <p className="text-muted-foreground text-sm">No completed sessions yet.</p>
+              <p className="text-muted-foreground text-base">No completed sessions yet.</p>
             )}
           </div>
         </Reveal>

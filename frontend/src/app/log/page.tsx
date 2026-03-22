@@ -29,7 +29,7 @@ export default function LogPage() {
           <p className="text-base text-muted-foreground mb-5">All past sessions and their analyses.</p>
         </Reveal>
 
-        {loading && <p className="text-muted-foreground text-sm">Loading...</p>}
+        {loading && <p className="text-muted-foreground text-base">Loading...</p>}
 
         <div className="flex flex-col gap-3">
           {entries.map((entry, i) => (
@@ -50,7 +50,7 @@ export default function LogPage() {
             </Reveal>
           ))}
           {!loading && entries.length === 0 && (
-            <p className="text-muted-foreground text-sm">No analyses yet. Complete a session and run analysis first.</p>
+            <p className="text-muted-foreground text-base">No analyses yet. Complete a session and run analysis first.</p>
           )}
         </div>
       </PageMain>

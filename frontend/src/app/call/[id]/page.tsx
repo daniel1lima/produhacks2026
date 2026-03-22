@@ -290,7 +290,7 @@ export default function CallPage() {
 
         <div className="relative z-10 flex flex-col items-center text-center px-8">
           {error && (
-            <div className="mb-6 max-w-md rounded-xl bg-red-500/15 border border-red-500/30 px-6 py-3 text-red-300 text-sm">
+            <div className="mb-6 max-w-md rounded-xl bg-red-500/15 border border-red-500/30 px-6 py-3 text-red-300 text-base">
               {error}
             </div>
           )}
@@ -341,7 +341,7 @@ export default function CallPage() {
       <audio ref={audioRef} autoPlay />
 
       {/* Status pill */}
-      <div className="absolute top-7 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium backdrop-blur-2xl bg-black/40 border border-white/[0.06] text-white/70">
+      <div className="absolute top-7 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-5 py-2 rounded-full text-base font-medium backdrop-blur-2xl bg-black/40 border border-white/[0.06] text-white/70">
         <div className="w-[7px] h-[7px] rounded-full bg-emerald-400 animate-pulse" />
         {status}
       </div>

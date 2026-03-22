@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Play } from "lucide-react"
+import { ArrowLeft, Play, User, Clock, MapPin, AlertCircle, Smile, Eye } from "lucide-react"
 import { CustomButton2 } from "@/components/ui/CustomButton2"
 import { AppNav } from "@/components/ui/AppNav"
 import { PageMain } from "@/components/ui/PageMain"
@@ -27,6 +27,7 @@ type SessionData = {
   locationLabel: string | null
   contact: { name: string; phone: string } | null
   analysis: {
+    title: string | null
     summary: string
     moodScore: number | null
     concerns: string[] | null
@@ -143,73 +144,134 @@ export default function SessionPage() {
             <ArrowLeft size={20} />
             Back
           </CustomButton2>
-          <h1 className="text-2xl font-normal">{(analysis as any)?.title || contactName}</h1>
+          <h1 className="text-2xl font-normal">{session.analysis?.title || `Check-in · ${formatDate(session.startedAt)}`}</h1>
         </Reveal>
 
         {/* Session details card */}
         <Reveal delay={0.04}>
           <CustomCard>
-            <CustomCardContent className="py-4 space-y-3">
-              <div>
-                <p className="text-base text-muted-foreground">Contact</p>
-                <p className="text-base">{contactName}</p>
-              </div>
-              <div>
-                <p className="text-base text-muted-foreground">Status</p>
-                <p className="text-base">{session.status}</p>
-              </div>
-              <div>
-                <p className="text-base text-muted-foreground">Started</p>
-                <p className="text-base">{formatDate(session.startedAt)} {formatTime(session.startedAt)}</p>
-              </div>
-              <div>
-                <p className="text-base text-muted-foreground">Duration</p>
-                <p className="text-base">{duration}</p>
-              </div>
-              {session.locationLabel && (
-                <div>
-                  <p className="text-base text-muted-foreground">Location</p>
-                  <p className="text-base">{session.locationLabel}</p>
+            <CustomCardContent className="py-5 space-y-6">
+
+              {/* Contact + meta row */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-foreground">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-base">{contactName}</span>
+                  </div>
+                  <span className={`px-3 py-0.5 rounded-full text-base border ${
+                    session.status === "completed"
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                      : session.status === "failed"
+                      ? "border-red-500/40 bg-red-500/10 text-red-500"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-500"
+                  }`}>
+                    {session.status}
+                  </span>
                 </div>
-              )}
-              {analysis && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-base text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatDate(session.startedAt)} · {formatTime(session.startedAt)}
+                  </span>
+                  <span>·</span>
+                  <span>{duration}</span>
+                  {session.locationLabel && (
+                    <>
+                      <span>·</span>
+                      <span className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {session.locationLabel}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {analysis ? (
                 <>
-                  <div>
+                  {/* Mood + Urgency */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-border p-4 space-y-1">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Smile className="h-4 w-4" />
+                        <p className="text-base">Mood</p>
+                      </div>
+                      <p className="text-base">
+                        {analysis.moodScore !== null ? `${analysis.moodScore}/10` : "—"}
+                      </p>
+                    </div>
+                    <div className={`rounded-xl border p-4 space-y-1 ${
+                      analysis.urgencyLevel === "emergency"
+                        ? "border-red-500/40 bg-red-500/5"
+                        : analysis.urgencyLevel === "elevated"
+                        ? "border-amber-500/40 bg-amber-500/5"
+                        : "border-emerald-500/40 bg-emerald-500/5"
+                    }`}>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <AlertCircle className="h-4 w-4" />
+                        <p className="text-base">Urgency</p>
+                      </div>
+                      <p className={`text-base capitalize ${
+                        analysis.urgencyLevel === "emergency"
+                          ? "text-red-500"
+                          : analysis.urgencyLevel === "elevated"
+                          ? "text-amber-500"
+                          : "text-emerald-500"
+                      }`}>
+                        {analysis.urgencyLevel}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Concerns */}
+                  {analysis.concerns && analysis.concerns.length > 0 && (
+                    <div className="rounded-xl border border-border p-4 space-y-2">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <AlertCircle className="h-4 w-4" />
+                        <p className="text-base">Concerns</p>
+                      </div>
+                      <ul className="space-y-1">
+                        {analysis.concerns.map((c, i) => (
+                          <li key={i} className="flex items-start gap-2 text-base">
+                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                            {c}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Visual observation */}
+                  {(analysis.visualSummary || analysis.appearanceScore !== null) && (
+                    <div className="rounded-xl border border-border p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Eye className="h-4 w-4" />
+                          <p className="text-base">Visual observation</p>
+                        </div>
+                        {analysis.appearanceScore !== null && (
+                          <span className="text-base text-muted-foreground">
+                            Appearance <span className="text-foreground">{analysis.appearanceScore}/10</span>
+                          </span>
+                        )}
+                      </div>
+                      {analysis.visualSummary && (
+                        <p className="text-base leading-relaxed">{analysis.visualSummary}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Summary */}
+                  <div className="rounded-xl border border-border p-4 space-y-2">
                     <p className="text-base text-muted-foreground">Summary</p>
-                    <p className="text-base">{analysis.summary}</p>
+                    <p className="text-base leading-relaxed">{analysis.summary}</p>
                   </div>
-                  <div>
-                    <p className="text-base text-muted-foreground">Mood</p>
-                    <p className="text-base">{analysis.moodScore !== null ? `${analysis.moodScore}/10` : "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-base text-muted-foreground">Urgency</p>
-                    <p className="text-base">{analysis.urgencyLevel}</p>
-                  </div>
-                  <div>
-                    <p className="text-base text-muted-foreground">Concerns</p>
-                    <p className="text-base">{analysis.concerns && analysis.concerns.length > 0 ? analysis.concerns.join(", ") : "None"}</p>
-                  </div>
-                  {analysis.visualSummary && (
-                    <div>
-                      <p className="text-base text-muted-foreground">Visual observation</p>
-                      <p className="text-base">{analysis.visualSummary}</p>
-                    </div>
-                  )}
-                  {analysis.appearanceScore !== null && (
-                    <div>
-                      <p className="text-base text-muted-foreground">Appearance</p>
-                      <p className="text-base">{analysis.appearanceScore}/10</p>
-                    </div>
-                  )}
                 </>
+              ) : (
+                <p className="text-base text-muted-foreground">Not yet analyzed.</p>
               )}
-              {!analysis && (
-                <div>
-                  <p className="text-base text-muted-foreground">Analysis</p>
-                  <p className="text-base">Not yet analyzed</p>
-                </div>
-              )}
+
             </CustomCardContent>
           </CustomCard>
         </Reveal>
@@ -238,7 +300,7 @@ export default function SessionPage() {
                 </div>
               )}
               {videoUrl && (
-                <div className="px-4 py-2 text-sm text-muted-foreground">
+                <div className="px-4 py-2 text-base text-muted-foreground">
                   Recording · {duration}
                 </div>
               )}
@@ -261,7 +323,7 @@ export default function SessionPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No transcript available.</p>
+                <p className="text-base text-muted-foreground">No transcript available.</p>
               )}
             </CustomCardContent>
           </CustomCard>
