@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { User, Bell, Shield, X, Plus, Trash2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { User, Bell, Shield, X, Plus, Trash2, Phone, Send, Activity, MapPin } from "lucide-react"
 import { CustomButton1 } from "@/components/ui/CustomButton1"
 import { CustomButton2 } from "@/components/ui/CustomButton2"
 import { AppNav } from "@/components/ui/AppNav"
@@ -9,15 +9,90 @@ import { PageMain } from "@/components/ui/PageMain"
 import { CustomInput } from "@/components/ui/CustomInput"
 import { CustomCard, CustomCardHeader, CustomCardTitle, CustomCardContent, CustomCardFooter } from "@/components/ui/CustomCard"
 import { Reveal } from "@/components/ui/Reveal"
-
-const trustedContacts = [
-  { name: "Dr. Smith", relation: "Primary physician" },
-  { name: "Sarah Johnson", relation: "Neighbor" },
-]
+import {
+  getContacts,
+  getContact,
+  createContact,
+  createSession,
+  analyzeSession,
+  type Contact,
+  type ContactWithSessions,
+} from "@/lib/api"
 
 export default function SettingsPage() {
   const [emergencyAlerts, setEmergencyAlerts] = useState(true)
   const [checkInReminders, setCheckInReminders] = useState(true)
+
+  // Session management state
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [selectedContact, setSelectedContact] = useState<ContactWithSessions | null>(null)
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    loadContacts()
+  }, [])
+
+  async function loadContacts() {
+    try {
+      const res = await getContacts()
+      setContacts(res.data || [])
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
+  async function handleCreateContact(e: React.FormEvent) {
+    e.preventDefault()
+    setError("")
+    try {
+      await createContact({ name, phone, caretakerId: "caretaker-001" })
+      setName("")
+      setPhone("")
+      await loadContacts()
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
+  async function handleViewContact(id: string) {
+    try {
+      const res = await getContact(id)
+      setSelectedContact(res.data)
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
+  async function handleStartSession(contactId: string) {
+    setError("")
+    setLoading(true)
+    try {
+      await createSession(contactId)
+      alert("Session created and SMS sent!")
+      await handleViewContact(contactId)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAnalyze(sessionId: string, contactId: string) {
+    setError("")
+    setLoading(true)
+    try {
+      await analyzeSession(sessionId)
+      alert("Analysis complete!")
+      await handleViewContact(contactId)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen">
@@ -28,9 +103,197 @@ export default function SettingsPage() {
           <h1 className="mb-6 text-2xl font-medium">Settings</h1>
         </Reveal>
 
+        {error && (
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
+            <button onClick={() => setError("")} className="ml-3 text-red-400 hover:text-red-300">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-6">
+          {/* ── Session Controls ── */}
+          <Reveal delay={0.025}>
+            <CustomCard>
+              <CustomCardHeader>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                  <CustomCardTitle>Session Controls</CustomCardTitle>
+                </div>
+              </CustomCardHeader>
+              <CustomCardContent className="flex flex-col gap-4">
+                {/* Add contact form */}
+                <form onSubmit={handleCreateContact} className="flex gap-2">
+                  <CustomInput
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="flex-1"
+                  />
+                  <CustomInput
+                    placeholder="Phone (+1...)"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    className="flex-1"
+                  />
+                  <CustomButton1 type="submit">
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </CustomButton1>
+                </form>
+
+                {/* Contacts list */}
+                {contacts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No contacts yet. Add one above.</p>
+                )}
+                {contacts.map((c) => (
+                  <div
+                    key={c.id}
+                    className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
+                      selectedContact?.id === c.id ? "border-emerald-500/50 bg-emerald-500/5" : "border-border"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{c.name}</p>
+                      <p className="text-xs text-muted-foreground">{c.phone}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <CustomButton2 onClick={() => handleViewContact(c.id)}>
+                        View
+                      </CustomButton2>
+                      <CustomButton1 onClick={() => handleStartSession(c.id)} disabled={loading}>
+                        <Send className="h-3.5 w-3.5" />
+                        New Session
+                      </CustomButton1>
+                    </div>
+                  </div>
+                ))}
+              </CustomCardContent>
+            </CustomCard>
+          </Reveal>
+
+          {/* ── Selected Contact Sessions ── */}
+          {selectedContact && (
+            <Reveal delay={0.05}>
+              <CustomCard>
+                <CustomCardHeader>
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-muted-foreground" />
+                    <CustomCardTitle>{selectedContact.name} — Sessions</CustomCardTitle>
+                  </div>
+                </CustomCardHeader>
+                <CustomCardContent className="flex flex-col gap-3">
+                  {(!selectedContact.sessions || selectedContact.sessions.length === 0) && (
+                    <p className="text-sm text-muted-foreground">No sessions yet.</p>
+                  )}
+                  {selectedContact.sessions?.map((s: any) => (
+                    <div key={s.id} className="rounded-lg border border-border p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Status:</span>
+                          <span
+                            className={`text-sm font-medium ${
+                              s.status === "completed"
+                                ? "text-emerald-500"
+                                : s.status === "failed"
+                                  ? "text-red-500"
+                                  : "text-amber-500"
+                            }`}
+                          >
+                            {s.status}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(s.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Location */}
+                      {s.latitude && s.longitude && (
+                        <div className="mt-3">
+                          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {s.locationLabel || `${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)}`}
+                          </div>
+                          <iframe
+                            title="Session location"
+                            width="100%"
+                            height="140"
+                            className="rounded-lg border border-border"
+                            loading="lazy"
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${s.longitude - 0.01},${s.latitude - 0.01},${s.longitude + 0.01},${s.latitude + 0.01}&layer=mapnik&marker=${s.latitude},${s.longitude}`}
+                          />
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      {s.status === "completed" && !s.analysis && (
+                        <div className="mt-3">
+                          <CustomButton2
+                            onClick={() => handleAnalyze(s.id, selectedContact.id)}
+                            disabled={loading}
+                          >
+                            <Activity className="h-3.5 w-3.5" />
+                            Run Analysis
+                          </CustomButton2>
+                        </div>
+                      )}
+
+                      {/* Analysis */}
+                      {s.analysis && (
+                        <div
+                          className={`mt-3 rounded-lg p-3 ${
+                            s.analysis.urgencyLevel === "emergency"
+                              ? "bg-red-500/10 border border-red-500/20"
+                              : s.analysis.urgencyLevel === "elevated"
+                                ? "bg-amber-500/10 border border-amber-500/20"
+                                : "bg-emerald-500/10 border border-emerald-500/20"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center justify-between text-sm">
+                            <span className="font-medium">
+                              Urgency:{" "}
+                              <span
+                                className={
+                                  s.analysis.urgencyLevel === "emergency"
+                                    ? "text-red-500"
+                                    : s.analysis.urgencyLevel === "elevated"
+                                      ? "text-amber-500"
+                                      : "text-emerald-500"
+                                }
+                              >
+                                {s.analysis.urgencyLevel}
+                              </span>
+                            </span>
+                            <span className="text-muted-foreground">
+                              Mood: {s.analysis.moodScore}/10
+                            </span>
+                          </div>
+                          <p className="text-sm">{s.analysis.summary}</p>
+                          {s.analysis.concerns?.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-medium text-muted-foreground mb-1">Concerns:</p>
+                              <ul className="list-disc pl-4 text-sm">
+                                {s.analysis.concerns.map((c: string, i: number) => (
+                                  <li key={i}>{c}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </CustomCardContent>
+              </CustomCard>
+            </Reveal>
+          )}
+
           {/* Profile */}
-          <Reveal delay={0.05}>
+          <Reveal delay={0.1}>
             <CustomCard>
               <CustomCardHeader>
                 <div className="flex items-center gap-2">
@@ -55,7 +318,7 @@ export default function SettingsPage() {
           </Reveal>
 
           {/* Notifications */}
-          <Reveal delay={0.1}>
+          <Reveal delay={0.15}>
             <CustomCard>
               <CustomCardHeader>
                 <div className="flex items-center gap-2">
@@ -93,7 +356,7 @@ export default function SettingsPage() {
           </Reveal>
 
           {/* Trusted contacts */}
-          <Reveal delay={0.15}>
+          <Reveal delay={0.2}>
             <CustomCard>
               <CustomCardHeader>
                 <div className="flex items-center gap-2">
@@ -102,17 +365,21 @@ export default function SettingsPage() {
                 </div>
               </CustomCardHeader>
               <CustomCardContent className="flex flex-col gap-3">
-                {trustedContacts.map((contact) => (
-                  <div key={contact.name} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                    <div>
-                      <p className="text-sm font-normal">{contact.name}</p>
-                      <p className="text-sm text-muted-foreground">{contact.relation}</p>
+                {contacts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No trusted contacts added yet.</p>
+                ) : (
+                  contacts.map((contact) => (
+                    <div key={contact.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                      <div>
+                        <p className="text-sm font-normal">{contact.name}</p>
+                        <p className="text-sm text-muted-foreground">{contact.phone}</p>
+                      </div>
+                      <CustomButton2 className="h-8 w-8 p-0">
+                        <X className="h-4 w-4" />
+                      </CustomButton2>
                     </div>
-                    <CustomButton2 className="h-8 w-8 p-0">
-                      <X className="h-4 w-4" />
-                    </CustomButton2>
-                  </div>
-                ))}
+                  ))
+                )}
               </CustomCardContent>
               <CustomCardFooter>
                 <CustomButton2>
@@ -124,7 +391,7 @@ export default function SettingsPage() {
           </Reveal>
 
           {/* Danger zone */}
-          <Reveal delay={0.2}>
+          <Reveal delay={0.25}>
             <CustomCard className="border-red-500/30">
               <CustomCardHeader>
                 <CustomCardTitle className="text-red-500">Danger zone</CustomCardTitle>
