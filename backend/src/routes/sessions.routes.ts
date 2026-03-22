@@ -7,6 +7,7 @@ import { geminiService } from "../services/gemini.service";
 import { s3Service } from "../services/s3.service";
 import { twilioService } from "../services/twilio.service";
 import { analysisRepository } from "../repositories/analysis.repository";
+import { followUpRepository } from "../repositories/followUp.repository";
 import { createSessionSchema } from "../types";
 import { validateBody } from "../middleware/validateRequest";
 import { AppError } from "../middleware/errorHandler";
@@ -34,7 +35,7 @@ router.post("/", validateBody(createSessionSchema), async (req: Request, res: Re
     const { sessionToken, sessionId: heygenSessionId } = await heygenService.createSessionToken();
 
     // Build a clean, short call link (token fetched by frontend via API)
-    const callLink = `${env.FRONTEND_URL}/call?s=${encodeURIComponent(contactId)}`;
+    const callLink = `${env.FRONTEND_URL}/call/${encodeURIComponent(contactId)}`;
 
     // Save session to DB with token stored server-side
     const session = await sessionRepository.create({
@@ -161,14 +162,64 @@ router.post("/:id/complete", async (req: Request, res: Response, next: NextFunct
       transcript = await heygenService.getTranscript(session.heygenSessionId);
     }
 
+    // Calculate duration in seconds
+    const endedAt = new Date();
+    const duration = session.startedAt
+      ? Math.round((endedAt.getTime() - new Date(session.startedAt).getTime()) / 1000)
+      : null;
+
     // Update session
     const updatedSession = await sessionRepository.update(id, {
       status: "completed",
-      endedAt: new Date(),
+      endedAt,
+      duration,
       transcriptRaw: transcript as any,
     });
 
     res.json({ success: true, data: updatedSession, error: null });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get presigned video URL for a session recording
+router.get("/:id/video", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = paramId(req);
+    const session = await sessionRepository.findById(id);
+    if (!session) {
+      throw new AppError(404, "Session not found");
+    }
+    if (!session.recordingKey) {
+      throw new AppError(404, "No recording available for this session");
+    }
+
+    const url = await s3Service.getPresignedUrl(session.recordingKey);
+    res.json({ success: true, data: { url, key: session.recordingKey }, error: null });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get transcript from S3 for a session
+router.get("/:id/transcript", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = paramId(req);
+    const session = await sessionRepository.findById(id);
+    if (!session) {
+      throw new AppError(404, "Session not found");
+    }
+
+    // Try S3 first (stored transcript JSON), fall back to transcriptRaw in DB
+    const s3Key = `transcripts/${id}.json`;
+    let transcript: unknown = null;
+    try {
+      transcript = await s3Service.getTranscript(s3Key);
+    } catch {
+      transcript = session.transcriptRaw;
+    }
+
+    res.json({ success: true, data: { transcript }, error: null });
   } catch (error) {
     next(error);
   }
@@ -207,6 +258,20 @@ router.post("/:id/analyze", async (req: Request, res: Response, next: NextFuncti
       appearanceScore: result.appearanceScore,
       s3Key,
     });
+
+    // Review pending follow-ups against the transcript
+    const pendingFollowUps = await followUpRepository.findPending();
+    if (pendingFollowUps.length > 0) {
+      const reviewResults = await geminiService.reviewFollowUps(
+        session.transcriptRaw,
+        pendingFollowUps.map((f) => ({ id: f.id, note: f.note }))
+      );
+      for (const item of reviewResults) {
+        if (item.addressed && item.id) {
+          await followUpRepository.markAddressed(item.id, item.response, id);
+        }
+      }
+    }
 
     // If emergency, send alert to caretaker
     if (result.urgencyLevel === "emergency") {
@@ -257,6 +322,16 @@ router.get("/join/:contactId", async (req: Request, res: Response, next: NextFun
       },
       error: null,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// List all sessions
+router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sessions = await sessionRepository.findAll();
+    res.json({ success: true, data: sessions, error: null });
   } catch (error) {
     next(error);
   }

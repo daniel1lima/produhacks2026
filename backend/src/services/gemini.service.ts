@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, Content, Part } from "@google/generative-ai";
 import { env } from "../config/env";
 import { AnalysisResult } from "../types";
 import { AppError } from "../middleware/errorHandler";
+import { followUpRepository } from "../repositories/followUp.repository";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 
@@ -45,9 +46,17 @@ const conversations = new Map<string, Content[]>();
 export const geminiService = {
   async chat(sessionId: string, userMessage: string): Promise<string> {
     try {
+      // Fetch pending follow-ups and inject into system prompt
+      const pendingFollowUps = await followUpRepository.findPending();
+      let systemPrompt = COMPANION_SYSTEM;
+      if (pendingFollowUps.length > 0) {
+        const topics = pendingFollowUps.map((f, i) => `${i + 1}. ${f.note}`).join("\n");
+        systemPrompt += `\n\nIMPORTANT — The caretaker has requested you bring up these additional talking points naturally during the conversation. Work them in when appropriate:\n${topics}`;
+      }
+
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
-        systemInstruction: COMPANION_SYSTEM,
+        systemInstruction: systemPrompt,
       });
 
       // Get or create conversation history
@@ -172,6 +181,45 @@ IMPORTANT: Return ONLY the JSON object, no other text.`,
       visualConcerns: videoResult.visualConcerns || [],
       appearanceScore: videoResult.appearanceScore,
     };
+  },
+
+  async reviewFollowUps(
+    transcript: unknown,
+    followUps: Array<{ id: string; note: string }>
+  ): Promise<Array<{ id: string; addressed: boolean; response: string }>> {
+    if (followUps.length === 0) return [];
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const transcriptText = typeof transcript === "string" ? transcript : JSON.stringify(transcript);
+      const followUpList = followUps.map((f) => `- id: "${f.id}", topic: "${f.note}"`).join("\n");
+
+      const result = await model.generateContent(`You are analyzing a health check-in conversation transcript to determine if specific talking points were addressed.
+
+For each talking point below, determine:
+1. Was this topic discussed in the conversation? (addressed: true/false)
+2. If addressed, write a 1-2 sentence summary of what was said about it.
+
+Talking points:
+${followUpList}
+
+Transcript:
+${transcriptText}
+
+Return ONLY a JSON array of objects with fields: "id" (string), "addressed" (boolean), "response" (string — summary if addressed, empty string if not).`);
+
+      const text = result.response.text();
+      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((item: any) => ({
+        id: typeof item.id === "string" ? item.id : "",
+        addressed: !!item.addressed,
+        response: typeof item.response === "string" ? item.response : "",
+      }));
+    } catch (error) {
+      console.error("[Gemini] Follow-up review failed:", error);
+      return [];
+    }
   },
 
   async generateDailySummary(sessionsData: string): Promise<Array<{ icon: string; title: string; summary: string; color: string }>> {

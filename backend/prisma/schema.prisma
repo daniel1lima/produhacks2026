@@ -30,6 +30,7 @@ model Session {
   latitude        Float?
   longitude       Float?
   locationLabel   String?
+  duration        Int?
   startedAt       DateTime?
   endedAt         DateTime?
   createdAt       DateTime  @default(now())
@@ -49,6 +50,17 @@ model Analysis {
   appearanceScore Int?
   s3Key           String?
   createdAt       DateTime @default(now())
+}
+
+model FollowUp {
+  id             String   @id @default(uuid())
+  note           String
+  status         String   @default("pending")
+  response       String?
+  addressedAt    DateTime?
+  sessionId      String?
+  caretakerId    String   @default("caretaker-001")
+  createdAt      DateTime @default(now())
 }
 
 model DailySummary {

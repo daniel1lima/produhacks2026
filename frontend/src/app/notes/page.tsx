@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Plus, Circle, CircleCheck, Lightbulb } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { CustomButton2 } from "@/components/ui/CustomButton2"
@@ -8,60 +8,53 @@ import { CustomInput } from "@/components/ui/CustomInput"
 import { AppNav } from "@/components/ui/AppNav"
 import { PageMain } from "@/components/ui/PageMain"
 import { Reveal } from "@/components/ui/Reveal"
+import { getFollowUps, createFollowUp, deleteFollowUp, type FollowUp } from "@/lib/api"
 
-// ── Talking points data ───────────────────────────────────
-
-type TalkingPoint = {
-  id: string
-  note: string
-  status: "pending" | "addressed"
-  response?: string
-}
-
-const initialTalkingPoints: TalkingPoint[] = [
-  { id: "1", note: "Ask about the chest tightness from last week", status: "addressed", response: "Rose said it went away after resting. She hasn't felt it since Tuesday and thinks it was just stress." },
-  { id: "2", note: "Check if she's been taking morning medication", status: "addressed", response: "She missed Tuesday but has been consistent every other day. Remembered to take it by the evening." },
-  { id: "3", note: "Ask if she's heard from Helen recently", status: "addressed", response: "Helen brought over flowers earlier this week. They had tea together on Wednesday." },
-  { id: "4", note: "Follow up on the garden — are tomatoes blooming?", status: "addressed", response: "Yes! Rose was excited to share that her tomatoes are starting to bloom. She's been watering them every morning." },
-  { id: "5", note: "Check if she's been sleeping through the night", status: "addressed", response: "Rose said she's been waking up once around 3 AM but falls back asleep quickly. No major issues." },
-  { id: "6", note: "Mention the family reunion plans", status: "pending" },
-  { id: "7", note: "Ask about appetite and meals this week", status: "pending" },
-  { id: "8", note: "Check if she's getting outside for walks", status: "pending" },
-]
-
-// ── Suggested topics (not discussed recently) ─────────────
-
+// ── Suggested topics (static for now) ─────────────
 const suggestedTopics = [
   "Ask about physical health — not discussed in recent sessions",
   "Check in on cognitive health — not discussed in recent sessions",
 ]
 
-// ── Page ───────────────────────────────────────────────────
-
 export default function NotesPage() {
-  const [talkingPoints, setTalkingPoints] = useState<TalkingPoint[]>(initialTalkingPoints)
+  const [followUps, setFollowUps] = useState<FollowUp[]>([])
   const [newNote, setNewNote] = useState("")
   const [showAllCompleted, setShowAllCompleted] = useState(false)
   const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const pendingPoints = talkingPoints.filter(tp => tp.status === "pending")
-  const addressedPoints = talkingPoints.filter(tp => tp.status === "addressed")
+  useEffect(() => {
+    loadFollowUps()
+  }, [])
+
+  async function loadFollowUps() {
+    try {
+      const res = await getFollowUps()
+      setFollowUps(res.data || [])
+    } catch {}
+    setLoading(false)
+  }
+
+  const pendingPoints = followUps.filter(tp => tp.status === "pending")
+  const addressedPoints = followUps.filter(tp => tp.status === "addressed")
   const visibleAddressed = showAllCompleted ? addressedPoints : addressedPoints.slice(0, 2)
   const visibleSuggestions = suggestedTopics.filter(s => !dismissedSuggestions.includes(s))
 
-  function addTalkingPoint(note?: string) {
+  async function addTalkingPoint(note?: string) {
     const text = note || newNote.trim()
     if (!text) return
-    setTalkingPoints(prev => [...prev, {
-      id: Date.now().toString(),
-      note: text,
-      status: "pending",
-    }])
-    if (!note) setNewNote("")
+    try {
+      await createFollowUp(text)
+      if (!note) setNewNote("")
+      await loadFollowUps()
+    } catch {}
   }
 
-  function removeTalkingPoint(id: string) {
-    setTalkingPoints(prev => prev.filter(tp => tp.id !== id))
+  async function removeTalkingPoint(id: string) {
+    try {
+      await deleteFollowUp(id)
+      setFollowUps(prev => prev.filter(tp => tp.id !== id))
+    } catch {}
   }
 
   function addSuggestion(suggestion: string) {
@@ -80,8 +73,10 @@ export default function NotesPage() {
       <PageMain>
         <Reveal>
           <h1 className="text-2xl font-normal mb-1">Follow-ups</h1>
-          <p className="text-base text-muted-foreground mb-5">Things to bring up in Rose's next session.</p>
+          <p className="text-base text-muted-foreground mb-5">Things to bring up in the next session.</p>
         </Reveal>
+
+        {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
 
         {/* Suggested topics */}
         {visibleSuggestions.length > 0 && (
@@ -173,7 +168,7 @@ export default function NotesPage() {
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {pendingPoints.length === 0 && (
+                {!loading && pendingPoints.length === 0 && (
                   <p className="text-base text-muted-foreground/50 italic py-4 text-center">No pending notes.</p>
                 )}
               </div>
@@ -199,13 +194,15 @@ export default function NotesPage() {
                         <CircleCheck className="mt-0.5 h-4 w-4 text-green-500 shrink-0" />
                         <div className="flex-1">
                           <p className="text-base leading-relaxed">{tp.note}</p>
-                          <p className="text-base text-muted-foreground leading-relaxed mt-2">{tp.response}</p>
+                          {tp.response && (
+                            <p className="text-base text-muted-foreground leading-relaxed mt-2">{tp.response}</p>
+                          )}
                         </div>
                       </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {addressedPoints.length === 0 && (
+                {!loading && addressedPoints.length === 0 && (
                   <p className="text-base text-muted-foreground/50 italic py-4 text-center">No responses yet.</p>
                 )}
                 {addressedPoints.length > 2 && (

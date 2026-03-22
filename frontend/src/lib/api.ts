@@ -64,6 +64,14 @@ export interface Session {
   analysis?: Analysis;
 }
 
+export interface SessionWithContact extends Session {
+  contact: Contact;
+}
+
+export function listSessions() {
+  return apiFetch<{ success: boolean; data: SessionWithContact[] }>("/api/sessions");
+}
+
 export function createSession(contactId: string) {
   return apiFetch<{
     success: boolean;
@@ -201,12 +209,42 @@ export function generateSummary() {
   );
 }
 
+// ── Follow-ups ──
+
+export interface FollowUp {
+  id: string;
+  note: string;
+  status: "pending" | "addressed";
+  response: string | null;
+  addressedAt: string | null;
+  sessionId: string | null;
+  createdAt: string;
+}
+
+export function getFollowUps() {
+  return apiFetch<{ success: boolean; data: FollowUp[] }>("/api/followups");
+}
+
+export function createFollowUp(note: string) {
+  return apiFetch<{ success: boolean; data: FollowUp }>("/api/followups", {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
+}
+
+export function deleteFollowUp(id: string) {
+  return apiFetch<{ success: boolean }>(`/api/followups/${id}`, {
+    method: "DELETE",
+  });
+}
+
 // ── Namespace export for react-query hooks compatibility ──
 
 export const api = {
   listContacts: getContacts,
   getContact,
   createContact,
+  listSessions,
   createSession,
   getSession: (id: string) =>
     apiFetch<{ success: boolean; data: Session }>(`/api/sessions/${id}`),

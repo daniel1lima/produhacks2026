@@ -30,6 +30,13 @@ export const sessionRepository = {
     });
   },
 
+  async findAll() {
+    return prisma.session.findMany({
+      include: { contact: true, analysis: true },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
   async findByContactId(contactId: string): Promise<Session[]> {
     return prisma.session.findMany({
       where: { contactId },

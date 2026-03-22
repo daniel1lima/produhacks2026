@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
-  Play, TrendingUp, Moon, Pill, Users,
+  Play, TrendingUp, Moon, Pill, Users, Activity, Heart, AlertTriangle,
+  Smile, Thermometer, Brain, Apple, Footprints, Eye, Clock, ShieldCheck, ShieldAlert,
   Circle, CircleCheck, Plus, X, type LucideIcon,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
@@ -13,9 +14,33 @@ import { Reveal } from "@/components/ui/Reveal"
 import { AppNav } from "@/components/ui/AppNav"
 import { PageMain } from "@/components/ui/PageMain"
 import { cn } from "@/lib/utils"
+import {
+  getSummaries, listSessions, getFollowUps, createFollowUp, deleteFollowUp,
+  type DailySummaryItem, type SessionWithContact, type FollowUp,
+} from "@/lib/api"
 
-// ── AI-generated insights ─────────────────────────────────
-// Shape the backend LLM returns: { title, icon, color, summary }
+// ── Icon + color mapping from Gemini output ──────────────
+
+const iconMap: Record<string, LucideIcon> = {
+  TrendingUp, Moon, Pill, Users, Activity, Heart, AlertTriangle,
+  Smile, Thermometer, Brain, Apple, Footprints, Eye, Clock, ShieldCheck, ShieldAlert,
+}
+
+function hexToTailwindBucket(hex: string): string {
+  // Map hex to closest tailwind color bucket for border/bg classes
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  if (r > 180 && g < 100 && b < 100) return "rose"
+  if (r > 200 && g > 150 && b < 80) return "amber"
+  if (g > 180 && r < 100) return "emerald"
+  if (b > 180 && r < 100) return "blue"
+  if (r > 100 && b > 150) return "violet"
+  if (g > 150 && b > 150 && r < 80) return "cyan"
+  if (r > 200 && g > 100 && g < 180) return "orange"
+  if (g > 150) return "green"
+  return "emerald"
+}
 
 type Insight = {
   id: string
@@ -24,38 +49,6 @@ type Insight = {
   color: string
   summary: string
 }
-
-// Mock: in production this comes from the backend
-const insights: Insight[] = [
-  {
-    id: "1",
-    title: "Mood trending up",
-    icon: TrendingUp,
-    color: "emerald",
-    summary: "Rose's mood has been trending upward over the last 3 sessions — she's been cooking more and eating well.",
-  },
-  {
-    id: "2",
-    title: "Sleep concerns",
-    icon: Moon,
-    color: "blue",
-    summary: "Rose reported difficulty sleeping over the past few nights. Worth checking in on at the next session.",
-  },
-  {
-    id: "3",
-    title: "Medication missed",
-    icon: Pill,
-    color: "amber",
-    summary: "Rose mentioned skipping her morning medication on Tuesday but remembered to take it by the evening.",
-  },
-  {
-    id: "4",
-    title: "Strong social connections",
-    icon: Users,
-    color: "violet",
-    summary: "Rose mentioned your visit last weekend and that her neighbour Helen brought over flowers. She seems well connected.",
-  },
-]
 
 const tileColors: Record<string, { border: string; bg: string; icon: string }> = {
   emerald: { border: "border-emerald-500/50", bg: "bg-emerald-500/5", icon: "text-emerald-500" },
@@ -68,30 +61,7 @@ const tileColors: Record<string, { border: string; bg: string; icon: string }> =
   cyan:    { border: "border-cyan-500/50",    bg: "bg-cyan-500/5",    icon: "text-cyan-500" },
 }
 
-// ── Sessions ──────────────────────────────────────────────
-
-type Session = {
-  id: string
-  contact: string
-  title: string
-  date: string
-  time: string
-  duration: string
-  location: string
-  moodScore: number
-  urgency: "normal" | "elevated" | "emergency"
-}
-
-const mockSessions: Session[] = [
-  { id: "1", contact: "Grandma Rose", title: "Garden update & Sarah's visit last weekend",        date: "Mar 21, 2026", time: "9:14 AM",  duration: "12 min", location: "742 Evergreen Terrace, Springfield",  moodScore: 8, urgency: "normal" },
-  { id: "2", contact: "Uncle Bob",    title: "Trouble sleeping and lower energy than usual",      date: "Mar 20, 2026", time: "2:30 PM",  duration: "8 min",  location: "18 Maple St, Shelbyville",            moodScore: 4, urgency: "elevated" },
-  { id: "3", contact: "Aunt May",     title: "New soup recipe, eating well, excited for reunion", date: "Mar 21, 2026", time: "11:00 AM", duration: "15 min", location: "Sunrise Assisted Living, 90 Oak Ave", moodScore: 9, urgency: "normal" },
-  { id: "4", contact: "Grandma Rose", title: "Feeling alone, missed meals, chest tightness",     date: "Mar 19, 2026", time: "8:45 AM",  duration: "10 min", location: "742 Evergreen Terrace, Springfield",  moodScore: 3, urgency: "emergency" },
-  { id: "5", contact: "Uncle Bob",    title: "Staying indoors more, less social this week",      date: "Mar 18, 2026", time: "4:00 PM",  duration: "6 min",  location: "18 Maple St, Shelbyville",            moodScore: 5, urgency: "elevated" },
-  { id: "6", contact: "Aunt May",     title: "Book club meeting and flowers from neighbour",     date: "Mar 17, 2026", time: "10:30 AM", duration: "14 min", location: "Sunrise Assisted Living, 90 Oak Ave", moodScore: 8, urgency: "normal" },
-]
-
-// ── Helpers ────────────────────────────────────────────────
+// ── Session helpers ──────────────────────────────────────
 
 function sessionDot(urgency: string, moodScore: number) {
   if (urgency === "emergency" || moodScore < 4) return "bg-red-500"
@@ -105,25 +75,75 @@ function sessionColors(urgency: string, moodScore: number) {
   return "border-green-500/60 bg-green-500/5 hover:bg-green-500/10"
 }
 
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return ""
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function formatTime(dateStr: string | null | undefined) {
+  if (!dateStr) return ""
+  return new Date(dateStr).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+}
+
+function formatDuration(start: string | null | undefined, end: string | null | undefined) {
+  if (!start || !end) return ""
+  const mins = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000)
+  return `${mins} min`
+}
+
 // ── Page ───────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [pendingNotes, setPendingNotes] = useState([
-    "Mention the family reunion plans",
-    "Ask about appetite and meals this week",
-    "Check if she's getting outside for walks",
-  ])
+  const [insights, setInsights] = useState<Insight[]>([])
+  const [sessions, setSessions] = useState<SessionWithContact[]>([])
+  const [followUps, setFollowUps] = useState<FollowUp[]>([])
+  const [loading, setLoading] = useState(true)
   const [newNote, setNewNote] = useState("")
 
-  function addNote() {
+  const pendingNotes = followUps.filter((f) => f.status === "pending")
+  const addressedNotes = followUps.filter((f) => f.status === "addressed").slice(0, 2)
+
+  useEffect(() => {
+    Promise.all([
+      getSummaries(1).then((res) => {
+        const latest = res.data?.[0]
+        if (latest?.items) {
+          setInsights(
+            latest.items.map((item: DailySummaryItem, i: number) => ({
+              id: String(i),
+              title: item.title,
+              icon: iconMap[item.icon] || Activity,
+              color: hexToTailwindBucket(item.color),
+              summary: item.summary,
+            }))
+          )
+        }
+      }).catch(() => {}),
+      listSessions().then((res) => {
+        setSessions((res.data || []).filter((s) => s.status === "completed").slice(0, 3))
+      }).catch(() => {}),
+      getFollowUps().then((res) => {
+        setFollowUps(res.data || [])
+      }).catch(() => {}),
+    ]).finally(() => setLoading(false))
+  }, [])
+
+  async function addNote() {
     const trimmed = newNote.trim()
     if (!trimmed) return
-    setPendingNotes(prev => [...prev, trimmed])
-    setNewNote("")
+    try {
+      await createFollowUp(trimmed)
+      setNewNote("")
+      const res = await getFollowUps()
+      setFollowUps(res.data || [])
+    } catch {}
   }
 
-  function removeNote(index: number) {
-    setPendingNotes(prev => prev.filter((_, i) => i !== index))
+  async function removeNote(id: string) {
+    try {
+      await deleteFollowUp(id)
+      setFollowUps((prev) => prev.filter((f) => f.id !== id))
+    } catch {}
   }
 
   return (
@@ -136,11 +156,11 @@ export default function DashboardPage() {
         <section>
           <Reveal>
             <h2 className="text-2xl font-normal mb-1">While you were gone</h2>
-            <p className="text-base text-muted-foreground mb-5">Key insights from Rose's recent check-in calls.</p>
+            <p className="text-base text-muted-foreground mb-5">Key insights from recent check-in calls.</p>
           </Reveal>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {insights.map((insight, i) => {
-              const c = tileColors[insight.color]
+              const c = tileColors[insight.color] || tileColors.emerald
               const Icon = insight.icon
               return (
                 <Reveal key={insight.id} delay={i * 0.04}>
@@ -154,6 +174,9 @@ export default function DashboardPage() {
                 </Reveal>
               )
             })}
+            {!loading && insights.length === 0 && (
+              <p className="text-muted-foreground text-sm col-span-full">No insights yet. Generate a daily summary from Settings.</p>
+            )}
           </div>
         </section>
 
@@ -163,7 +186,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h2 className="text-2xl font-normal mb-1">Follow-ups</h2>
-                <p className="text-base text-muted-foreground">Things to bring up in Rose's next session.</p>
+                <p className="text-base text-muted-foreground">Things to bring up in the next session.</p>
               </div>
               <Link href="/notes"><CustomButton2>View all</CustomButton2></Link>
             </div>
@@ -188,9 +211,9 @@ export default function DashboardPage() {
                 </form>
                 <div className="flex flex-col gap-3">
                   <AnimatePresence>
-                    {pendingNotes.map((note, i) => (
+                    {pendingNotes.map((fp) => (
                       <motion.div
-                        key={note}
+                        key={fp.id}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
@@ -199,9 +222,9 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-start gap-3">
                           <Circle className="mt-0.5 h-4 w-4 text-yellow-500 shrink-0" />
-                          <p className="text-base leading-relaxed flex-1">{note}</p>
+                          <p className="text-base leading-relaxed flex-1">{fp.note}</p>
                           <button
-                            onClick={() => removeNote(i)}
+                            onClick={() => removeNote(fp.id)}
                             className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                           >
                             <X className="h-4 w-4" />
@@ -210,6 +233,9 @@ export default function DashboardPage() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
+                  {!loading && pendingNotes.length === 0 && (
+                    <p className="text-base text-muted-foreground/50 italic py-4 text-center">No pending notes.</p>
+                  )}
                 </div>
               </div>
             </Reveal>
@@ -218,20 +244,22 @@ export default function DashboardPage() {
               <div>
                 <p className="text-base font-normal text-green-500 mb-3">Addressed</p>
                 <div className="flex flex-col gap-3">
-                  {[
-                    { note: "Ask about the chest tightness from last week", response: "Rose said it went away after resting. She hasn't felt it since Tuesday." },
-                    { note: "Check if she's been taking morning medication", response: "Missed Tuesday but consistent otherwise. Remembered by the evening." },
-                  ].map((tp, i) => (
-                    <div key={i} className="rounded-xl border border-green-500/50 bg-green-500/5 p-4">
+                  {addressedNotes.map((fp) => (
+                    <div key={fp.id} className="rounded-xl border border-green-500/50 bg-green-500/5 p-4">
                       <div className="flex items-start gap-3">
                         <CircleCheck className="mt-0.5 h-4 w-4 text-green-500 shrink-0" />
                         <div className="flex-1">
-                          <p className="text-base leading-relaxed">{tp.note}</p>
-                          <p className="text-base text-muted-foreground leading-relaxed mt-2">{tp.response}</p>
+                          <p className="text-base leading-relaxed">{fp.note}</p>
+                          {fp.response && (
+                            <p className="text-base text-muted-foreground leading-relaxed mt-2">{fp.response}</p>
+                          )}
                         </div>
                       </div>
                     </div>
                   ))}
+                  {!loading && addressedNotes.length === 0 && (
+                    <p className="text-base text-muted-foreground/50 italic py-4 text-center">No responses yet.</p>
+                  )}
                 </div>
               </div>
             </Reveal>
@@ -251,27 +279,35 @@ export default function DashboardPage() {
           </Reveal>
 
           <div className="flex flex-col gap-3">
-            {mockSessions.slice(0, 3).map((session, i) => (
-              <Reveal key={session.id} delay={i * 0.06}>
-                <Link href={`/session/${session.id}`} className="block">
-                  <div className={`w-full text-left px-4 py-3 rounded-xl border transition-colors flex items-center justify-between gap-4 ${sessionColors(session.urgency, session.moodScore)}`}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${sessionDot(session.urgency, session.moodScore)}`} />
-                      <div className="min-w-0">
-                        <p className="text-base">{session.title}</p>
-                        <p className="text-base text-muted-foreground mt-0.5">
-                          {session.date} · {session.time} · {session.duration} · {session.location}
-                        </p>
+            {sessions.map((session, i) => {
+              const urgency = session.analysis?.urgencyLevel || "normal"
+              const mood = session.analysis?.moodScore ?? 5
+              const summary = session.analysis?.summary || session.status
+              return (
+                <Reveal key={session.id} delay={i * 0.06}>
+                  <Link href={`/session/${session.id}`} className="block">
+                    <div className={`w-full text-left px-4 py-3 rounded-xl border transition-colors flex items-center justify-between gap-4 ${sessionColors(urgency, mood)}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${sessionDot(urgency, mood)}`} />
+                        <div className="min-w-0">
+                          <p className="text-base">{summary.length > 80 ? summary.slice(0, 80) + "..." : summary}</p>
+                          <p className="text-base text-muted-foreground mt-0.5">
+                            {formatDate(session.startedAt)} · {formatTime(session.startedAt)} · {formatDuration(session.startedAt, session.endedAt)} · {session.contact?.name || "Unknown"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <p className="text-base text-muted-foreground">Mood <span className="text-foreground">{mood}/10</span></p>
+                        <Play className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <p className="text-base text-muted-foreground">Mood <span className="text-foreground">{session.moodScore}/10</span></p>
-                      <Play className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                </Link>
-              </Reveal>
-            ))}
+                  </Link>
+                </Reveal>
+              )
+            })}
+            {!loading && sessions.length === 0 && (
+              <p className="text-muted-foreground text-sm">No completed sessions yet.</p>
+            )}
           </div>
         </section>
 

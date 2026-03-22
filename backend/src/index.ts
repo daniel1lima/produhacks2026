@@ -7,6 +7,7 @@ import sessionsRoutes from "./routes/sessions.routes";
 import notificationsRoutes from "./routes/notifications.routes";
 import analysisRoutes from "./routes/analysis.routes";
 import summariesRoutes from "./routes/summaries.routes";
+import followupsRoutes from "./routes/followups.routes";
 import { startDailySummaryJob } from "./jobs/dailySummary.job";
 
 const app = express();
@@ -20,6 +21,7 @@ app.use("/api/sessions", sessionsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/analysis", analysisRoutes);
 app.use("/api/summaries", summariesRoutes);
+app.use("/api/followups", followupsRoutes);
 
 // Health check
 app.get("/health", (_req, res) => {
