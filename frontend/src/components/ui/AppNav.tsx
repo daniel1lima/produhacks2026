@@ -7,14 +7,15 @@ import { cn } from "@/lib/utils"
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/notes", label: "Follow-ups" },
   { href: "/sessions", label: "Sessions" },
-  { href: "/log", label: "Log" },
   { href: "/settings", label: "Settings" },
 ]
 
 function isActive(href: string, pathname: string) {
   if (href === "/dashboard") return pathname === "/dashboard"
   if (href === "/sessions") return pathname === "/sessions" || pathname.startsWith("/session/")
+  if (href === "/notes") return pathname === "/notes"
   return pathname === href
 }
 
@@ -39,6 +40,11 @@ export function AppNav() {
             {label}
           </Link>
         ))}
+      </div>
+      <div className="absolute top-6 right-6">
+        <Link href="/signin">
+          <CustomButton2>Sign out</CustomButton2>
+        </Link>
       </div>
     </nav>
   )

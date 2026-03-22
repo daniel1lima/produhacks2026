@@ -50,7 +50,7 @@ export default function SessionsPage() {
 
       <PageMain>
         <Reveal>
-          <h1 className="text-2xl font-medium mb-1">Sessions</h1>
+          <h1 className="text-2xl font-normal mb-1">Sessions</h1>
           <p className="text-base text-muted-foreground">All past check-in recordings across your contacts.</p>
         </Reveal>
 
@@ -63,7 +63,7 @@ export default function SessionsPage() {
                     <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${sessionDot(session.urgency, session.moodScore)}`} />
                     <div className="min-w-0">
                       <p className="text-base">{session.title}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">
+                      <p className="text-base text-muted-foreground mt-0.5">
                         {session.date} · {session.time} · {session.duration} · {session.location}
                       </p>
                     </div>
