@@ -38,30 +38,13 @@ function formatDuration(start: string | null | undefined, end: string | null | u
   return `${mins} min`
 }
 
-const MOCK_SESSION: SessionWithContact = {
-  id: "mock-session-1",
-  status: "completed",
-  startedAt: "2026-03-21T10:15:00Z",
-  endedAt: "2026-03-21T10:25:00Z",
-  contact: { id: "mock-contact-1", name: "Margaret Smith", phone: "+1 (555) 123-4567", caretakerId: "c1", createdAt: "" },
-  analysis: {
-    urgencyLevel: "normal",
-    moodScore: 8,
-    summary: "Margaret was in good spirits today. She mentioned enjoying her morning walk and felt well-rested. No concerns flagged.",
-    concerns: [],
-  },
-}
-
 export default function SessionsPage() {
-  const [sessions, setSessions] = useState<SessionWithContact[]>([MOCK_SESSION])
+  const [sessions, setSessions] = useState<SessionWithContact[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     listSessions()
-      .then((res) => {
-        const real = (res.data || []).filter((s) => s.status === "completed")
-        setSessions([MOCK_SESSION, ...real])
-      })
+      .then((res) => setSessions((res.data || []).filter((s) => s.status === "completed")))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -83,7 +66,7 @@ export default function SessionsPage() {
             {sessions.map((session) => {
               const urgency = session.analysis?.urgencyLevel || "normal"
               const mood = session.analysis?.moodScore ?? 5
-              const title = (session.analysis as any)?.title || session.analysis?.summary || session.status
+              const title = session.analysis?.title || session.analysis?.summary || session.status
               return (
                 <Link key={session.id} href={`/session/${session.id}`} className="block">
                   <div className={`w-full text-left px-4 py-3 rounded-xl border transition-colors flex items-center justify-between gap-4 ${sessionColors(urgency, mood)}`}>

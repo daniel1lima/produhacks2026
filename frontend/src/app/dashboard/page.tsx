@@ -313,7 +313,7 @@ export default function DashboardPage() {
             {sessions.map((session, i) => {
               const urgency = session.analysis?.urgencyLevel || "normal"
               const mood = session.analysis?.moodScore ?? 5
-              const title = (session.analysis as any)?.title || session.analysis?.summary || session.status
+              const title = session.analysis?.title || session.analysis?.summary || session.status
               return (
                 <Reveal key={session.id} delay={i * 0.06}>
                   <Link href={`/session/${session.id}`} className="block">

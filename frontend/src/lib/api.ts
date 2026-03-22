@@ -149,6 +149,7 @@ export function sendInvite(contactId: string, sessionId: string) {
 // ── Analysis ──
 
 export interface Analysis {
+  title?: string;
   summary: string;
   moodScore: number;
   concerns: string[];

@@ -27,6 +27,7 @@ type SessionData = {
   locationLabel: string | null
   contact: { name: string; phone: string } | null
   analysis: {
+    title: string | null
     summary: string
     moodScore: number | null
     concerns: string[] | null
@@ -82,41 +83,6 @@ export default function SessionPage() {
   // Load session, video URL, and transcript together
   useEffect(() => {
     async function load() {
-      if (id === "mock-session-1") {
-        setSession({
-          id: "mock-session-1",
-          contactId: "mock-contact-1",
-          status: "completed",
-          duration: 600,
-          startedAt: "2026-03-21T10:15:00Z",
-          endedAt: "2026-03-21T10:25:00Z",
-          createdAt: "2026-03-21T10:15:00Z",
-          transcriptRaw: null,
-          recordingKey: null,
-          locationLabel: "Vancouver, BC",
-          contact: { name: "Margaret Smith", phone: "+1 (555) 123-4567" },
-          analysis: {
-            summary: "Margaret was in good spirits today. She mentioned enjoying her morning walk and felt well-rested. No concerns flagged.",
-            moodScore: 8,
-            concerns: ["Mild fatigue in the afternoons"],
-            urgencyLevel: "normal",
-            visualSummary: "Appeared calm and engaged throughout the call.",
-            appearanceScore: 9,
-          },
-        })
-        setTranscript([
-          { speaker: "Sunny", text: "Good morning Margaret! How are you feeling today?" },
-          { speaker: "Margaret Smith", text: "I'm doing well, thank you! I went for a walk this morning." },
-          { speaker: "Sunny", text: "That's wonderful to hear! How was the weather?" },
-          { speaker: "Margaret Smith", text: "It was lovely. A bit cool but sunny. I really enjoyed it." },
-          { speaker: "Sunny", text: "Great. Have you been sleeping okay?" },
-          { speaker: "Margaret Smith", text: "Yes, slept about 8 hours last night. Feeling rested." },
-        ])
-        setTranscriptLoaded(true)
-        setLoading(false)
-        return
-      }
-
       try {
         const sessionRes = await fetch(`${BACKEND_URL}/api/sessions/${id}`).then((r) => r.json())
         setSession(sessionRes.data)
@@ -178,7 +144,7 @@ export default function SessionPage() {
             <ArrowLeft size={20} />
             Back
           </CustomButton2>
-          <h1 className="text-2xl font-normal">Check-in · {formatDate(session.startedAt)}</h1>
+          <h1 className="text-2xl font-normal">{session.analysis?.title || `Check-in · ${formatDate(session.startedAt)}`}</h1>
         </Reveal>
 
         {/* Session details card */}
