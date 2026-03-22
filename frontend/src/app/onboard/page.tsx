@@ -34,7 +34,7 @@ function OptionCard({
     >
       <div>
         <p className="text-base font-normal">{label}</p>
-        {sublabel && <p className="text-sm text-muted-foreground">{sublabel}</p>}
+        {sublabel && <p className="text-base text-muted-foreground">{sublabel}</p>}
       </div>
       <div
         className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
@@ -287,7 +287,7 @@ export default function OnboardPage() {
                 <Reveal key={i}>
                 <div className="space-y-2 rounded-xl border border-border p-4">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-muted-foreground">Contact {i + 1}</span>
+                    <span className="text-base text-muted-foreground">Contact {i + 1}</span>
                     {trustedContacts.length > 1 && (
                       <CustomButton2
                         type="button"

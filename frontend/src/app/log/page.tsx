@@ -1,131 +1,134 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Clock, Loader2 } from "lucide-react"
+import Link from "next/link"
 import { AppNav } from "@/components/ui/AppNav"
 import { PageMain } from "@/components/ui/PageMain"
-import {
-  CustomCard,
-  CustomCardHeader,
-  CustomCardTitle,
-  CustomCardDescription,
-  CustomCardContent,
-} from "@/components/ui/CustomCard"
-import { getAnalyses, type AnalysisEntry } from "@/lib/api"
+import { CustomCard, CustomCardContent } from "@/components/ui/CustomCard"
 import { Reveal } from "@/components/ui/Reveal"
 
-function MoodBadge({ score }: { score: number }) {
-  const color =
-    score >= 7
-      ? "bg-green-500/10 text-green-500"
-      : score >= 4
-        ? "bg-yellow-500/10 text-yellow-500"
-        : "bg-red-500/10 text-red-500"
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
-      Mood: {score}/10
-    </span>
-  )
+// ── Mock log entries (Session + Analysis schema) ──
+
+type LogEntry = {
+  id: string
+  contact: string
+  status: string
+  startedAt: string
+  endedAt: string
+  createdAt: string
+  summary: string
+  moodScore: number | null
+  concerns: string[]
+  urgencyLevel: string
 }
 
-function UrgencyBadge({ level }: { level: string }) {
-  const colors: Record<string, string> = {
-    normal: "bg-green-500/10 text-green-500",
-    elevated: "bg-yellow-500/10 text-yellow-500",
-    emergency: "bg-red-500/10 text-red-500",
-  }
-  return (
-    <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[level] ?? "bg-muted text-muted-foreground"}`}
-    >
-      {level}
-    </span>
-  )
-}
+const logEntries: LogEntry[] = [
+  {
+    id: "1",
+    contact: "Grandma Rose",
+    status: "completed",
+    startedAt: "Mar 21, 2026 9:14 AM",
+    endedAt: "Mar 21, 2026 9:26 AM",
+    createdAt: "Mar 21, 2026 9:26 AM",
+    summary: "Rose was in great spirits today. She talked enthusiastically about her garden, mentioning that her tomatoes are starting to bloom. She also shared that her granddaughter Sarah visited last weekend and they baked together. Rose mentioned she had skipped her morning medication on Tuesday but remembered to take it by evening.",
+    moodScore: 8,
+    concerns: ["Missed morning medication (Tuesday)"],
+    urgencyLevel: "normal",
+  },
+  {
+    id: "2",
+    contact: "Uncle Bob",
+    status: "completed",
+    startedAt: "Mar 20, 2026 2:30 PM",
+    endedAt: "Mar 20, 2026 2:38 PM",
+    createdAt: "Mar 20, 2026 2:38 PM",
+    summary: "Bob seemed more tired than usual and reported difficulty sleeping over the past few nights. He mentioned lower back pain has been bothering him. He was less talkative than normal but engaged when asked about the baseball game.",
+    moodScore: 4,
+    concerns: ["Sleep difficulties", "Lower back pain", "Reduced energy"],
+    urgencyLevel: "elevated",
+  },
+  {
+    id: "3",
+    contact: "Aunt May",
+    status: "completed",
+    startedAt: "Mar 21, 2026 11:00 AM",
+    endedAt: "Mar 21, 2026 11:15 AM",
+    createdAt: "Mar 21, 2026 11:15 AM",
+    summary: "May was upbeat and energetic. She talked about a new soup recipe she tried and mentioned she's been eating better lately. She asked about the family reunion plans and seems excited about it.",
+    moodScore: 9,
+    concerns: [],
+    urgencyLevel: "normal",
+  },
+  {
+    id: "4",
+    contact: "Grandma Rose",
+    status: "completed",
+    startedAt: "Mar 19, 2026 8:45 AM",
+    endedAt: "Mar 19, 2026 8:55 AM",
+    createdAt: "Mar 19, 2026 8:55 AM",
+    summary: "Rose expressed feeling very alone and said she hadn't eaten since yesterday morning. She mentioned chest tightness but said it was probably nothing. She became tearful when discussing her late husband. Immediate follow-up was flagged.",
+    moodScore: 3,
+    concerns: ["Not eating", "Chest tightness", "Emotional distress", "Social isolation"],
+    urgencyLevel: "emergency",
+  },
+  {
+    id: "5",
+    contact: "Uncle Bob",
+    status: "completed",
+    startedAt: "Mar 18, 2026 4:00 PM",
+    endedAt: "Mar 18, 2026 4:06 PM",
+    createdAt: "Mar 18, 2026 4:06 PM",
+    summary: "Bob was brief but pleasant. Mentioned he's been watching a lot of TV lately and going out less. He said the weather has been keeping him indoors. Energy levels seemed okay but social engagement was lower than usual.",
+    moodScore: 5,
+    concerns: ["Reduced social engagement"],
+    urgencyLevel: "elevated",
+  },
+  {
+    id: "6",
+    contact: "Aunt May",
+    status: "completed",
+    startedAt: "Mar 17, 2026 10:30 AM",
+    endedAt: "Mar 17, 2026 10:44 AM",
+    createdAt: "Mar 17, 2026 10:44 AM",
+    summary: "May had a great session. She talked about her book club meeting and the mystery novel they're reading. She mentioned her neighbor Helen brought over some flowers. May seemed socially active and in good health.",
+    moodScore: 8,
+    concerns: [],
+    urgencyLevel: "normal",
+  },
+]
+
+// ── Page ───────────────────────────────────────────────────
 
 export default function LogPage() {
-  const [analyses, setAnalyses] = useState<AnalysisEntry[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await getAnalyses(1, 20)
-        setAnalyses(res.data)
-      } catch (e) {
-        console.error("Failed to load analyses:", e)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [])
-
   return (
     <div className="min-h-screen">
       <AppNav />
 
       <PageMain>
         <Reveal>
-          <h1 className="mb-6 text-2xl font-medium">Check-in history</h1>
+          <h1 className="text-2xl font-normal mb-1">Check-in history</h1>
+          <p className="text-base text-muted-foreground mb-5">All past sessions and their analyses.</p>
         </Reveal>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : analyses.length === 0 ? (
-          <Reveal delay={0.05}>
-            <CustomCard>
-              <CustomCardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
-                  No check-in history yet. Sessions will appear here after completion.
-                </p>
-              </CustomCardContent>
-            </CustomCard>
-          </Reveal>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {analyses.map((entry, i) => (
-              <Reveal key={entry.sessionId} delay={i * 0.08}>
-                <CustomCard>
-                  <CustomCardHeader>
-                    <div className="flex items-center justify-between">
-                      <CustomCardTitle>
-                        {entry.contactName || "Session"}
-                      </CustomCardTitle>
-                      <div className="flex items-center gap-2">
-                        <MoodBadge score={entry.moodScore} />
-                        <UrgencyBadge level={entry.urgencyLevel} />
-                      </div>
-                    </div>
-                    <CustomCardDescription>
-                      <Clock className="mr-1 inline h-3 w-3" />
-                      {entry.createdAt}
-                    </CustomCardDescription>
-                  </CustomCardHeader>
-                  <CustomCardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {entry.summary}
-                    </p>
-                    {entry.concerns.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {entry.concerns.map((concern) => (
-                          <span
-                            key={concern}
-                            className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-500"
-                          >
-                            {concern}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+        <div className="flex flex-col gap-3">
+          {logEntries.map((entry, i) => (
+            <Reveal key={entry.id} delay={i * 0.06}>
+              <Link href={`/session/${entry.id}`} className="block">
+                <CustomCard className="hover:bg-muted/30 transition-colors">
+                  <CustomCardContent className="py-4 space-y-1">
+                    <p className="text-base"><span className="text-muted-foreground">Contact:</span> {entry.contact}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Status:</span> {entry.status}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Started:</span> {entry.startedAt}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Ended:</span> {entry.endedAt}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Summary:</span> {entry.summary}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Mood:</span> {entry.moodScore !== null ? `${entry.moodScore}/10` : "N/A"}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Urgency:</span> {entry.urgencyLevel}</p>
+                    <p className="text-base"><span className="text-muted-foreground">Concerns:</span> {entry.concerns.length > 0 ? entry.concerns.join(", ") : "None"}</p>
                   </CustomCardContent>
                 </CustomCard>
-              </Reveal>
-            ))}
-          </div>
-        )}
+              </Link>
+            </Reveal>
+          ))}
+        </div>
       </PageMain>
     </div>
   )

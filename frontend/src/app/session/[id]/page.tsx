@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Play, Pause, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowLeft, Play, Pause, ChevronDown, ChevronUp } from "lucide-react"
 import { CustomButton2 } from "@/components/ui/CustomButton2"
 import { AppNav } from "@/components/ui/AppNav"
 import { PageMain } from "@/components/ui/PageMain"
@@ -173,14 +173,6 @@ const mockSessions: Record<string, MockSession> = {
   },
 }
 
-// ── Helpers ────────────────────────────────────────────────
-
-function urgencyColor(urgency: string) {
-  if (urgency === "emergency") return "text-red-500"
-  if (urgency === "elevated") return "text-yellow-500"
-  return "text-green-500"
-}
-
 // ── Page ───────────────────────────────────────────────────
 
 export default function SessionPage() {
@@ -212,44 +204,57 @@ export default function SessionPage() {
 
       <PageMain>
 
-        {/* Header */}
+        {/* Back + heading */}
         <Reveal>
           <CustomButton2 onClick={() => router.back()} className="mb-4">
             <ArrowLeft size={20} />
             Back
           </CustomButton2>
           <h1 className="text-2xl font-normal">{session.contact}</h1>
-          <p className="text-base text-muted-foreground mt-0.5">
-            {session.date} · {session.time} · {session.duration} · Mood {session.moodScore}/10
-          </p>
         </Reveal>
 
-        {/* Flagged concerns — top */}
-        {session.analysis.concerns.length > 0 && (
-          <Reveal delay={0.04}>
-            <CustomCard className={session.urgency === "emergency" ? "border-red-500/40" : "border-yellow-500/40"}>
-              <CustomCardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className={`h-4 w-4 ${urgencyColor(session.urgency)}`} />
-                  <CustomCardTitle>Flagged concerns</CustomCardTitle>
-                </div>
-              </CustomCardHeader>
-              <CustomCardContent className="pb-6">
-                <ul className="space-y-2">
-                  {session.analysis.concerns.map((concern) => (
-                    <li key={concern} className="flex items-center gap-2 text-base">
-                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${urgencyColor(session.urgency).replace("text-", "bg-")}`} />
-                      {concern}
-                    </li>
-                  ))}
-                </ul>
-              </CustomCardContent>
-            </CustomCard>
-          </Reveal>
-        )}
+        {/* Session details card */}
+        <Reveal delay={0.04}>
+          <CustomCard>
+            <CustomCardContent className="py-4 space-y-3">
+              <div>
+                <p className="text-base text-muted-foreground">Contact</p>
+                <p className="text-base">{session.contact}</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Status</p>
+                <p className="text-base">completed</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Started</p>
+                <p className="text-base">{session.date} {session.time}</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Duration</p>
+                <p className="text-base">{session.duration}</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Summary</p>
+                <p className="text-base">{session.analysis.summary}</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Mood</p>
+                <p className="text-base">{session.moodScore}/10</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Urgency</p>
+                <p className="text-base">{session.urgency}</p>
+              </div>
+              <div>
+                <p className="text-base text-muted-foreground">Concerns</p>
+                <p className="text-base">{session.analysis.concerns.length > 0 ? session.analysis.concerns.join(", ") : "None"}</p>
+              </div>
+            </CustomCardContent>
+          </CustomCard>
+        </Reveal>
 
         {/* Video */}
-        <Reveal delay={0.12}>
+        <Reveal delay={0.08}>
           <CustomCard>
             <CustomCardContent className="p-0 overflow-hidden rounded-xl">
               <div className="relative aspect-video bg-muted flex items-center justify-center">
@@ -270,22 +275,8 @@ export default function SessionPage() {
           </CustomCard>
         </Reveal>
 
-        {/* Session summary */}
-        <Reveal delay={0.16}>
-          <CustomCard>
-            <CustomCardHeader>
-              <CustomCardTitle>Session summary</CustomCardTitle>
-            </CustomCardHeader>
-            <CustomCardContent className="pb-6">
-              <p className="text-base text-muted-foreground leading-relaxed">
-                {session.analysis.summary}
-              </p>
-            </CustomCardContent>
-          </CustomCard>
-        </Reveal>
-
         {/* Full session transcript */}
-        <Reveal delay={0.2}>
+        <Reveal delay={0.12}>
           <CustomCard>
             <button
               onClick={() => setTranscriptOpen(!transcriptOpen)}
